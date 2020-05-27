@@ -1,12 +1,27 @@
 import pandas as pd
 import numpy as np
+'''
+# reload the signal_artifacts classes
+# hacky workaround atm
+import importlib
+importlib.reload(signal_artifacts)
+'''
+# import our own classes for the signal artifacts
+from signal_artifacts import ActionPotential
+from signal_artifacts import ElectricalStimulus
 
 class SpikeImporter:
 	# the dataframe that we work with
 	df = None
+	# save the channel names here to ease usage of this class from the outside
+	time_channel = None
+	signal_channel = None
+	stimulus_channel = None
+	ap_marker_channel = None
+	force_channel = None
 	
 	# constructor loads a spike file from the given file path
-	def __init__(self, filepath, custom_delimiter = ",", remove_apostrophes = True):
+	def __init__(self, filepath, time_channel, signal_channel, stimulus_channel, ap_marker_channel = None, force_channel = None, custom_delimiter = ",", remove_apostrophes = True):
 		# set up pandas to expect NaN values in the data and load the file 
 		self.df = pd.read_csv(filepath_or_buffer = filepath, delimiter = custom_delimiter, na_values = "NaN", na_filter = True)
 		
@@ -14,12 +29,64 @@ class SpikeImporter:
 		if remove_apostrophes == True:
 			self.df.columns = [column.replace("'", "") for column in self.df.columns]
 			
+		# write the channel names into our class variables
+		self.time_channel = time_channel
+		self.signal_channel = signal_channel
+		self.stimulus_channel = stimulus_channel
+		self.ap_marker_channel = ap_marker_channel
+		if ap_marker_channel == None:
+			print("No AP marker channel was given. But AP detection from signal is not yet implemented!")
+		self.force_channel = force_channel
+			
 	def getRawDataframe(self):
 		return self.df
 			
-	# return the action potentials from one channel
-	def getActionPotentials(self, channel_name):
-		return self.getRowsWhereNotNaN(channel_name)
+	# return a list of action potentials for the gap times
+	# also, calculate the distance to the electrical stimuli
+	def getActionPotentials(self, max_gap_time, el_stimuli):
+		# catch some possible errors errors
+		# TODO: make sure that these errors cannot even occur
+		if self.ap_marker_channel == None:
+			print("Getting APs from the signal itself is not yet supported.")
+			return None
+		if el_stimuli == None:
+			print("Please give a list of the electrical stimuli in this measurement")
+			return None
+			
+		# get the rows from the AP where Spike registered some AP matching our template
+		actpots_df = self.getRowsWhereNotNaN(self.ap_marker_channel)
+		
+		# then, create a list of the APs in this channel
+		actpots = []
+		index = 0
+		while index < len(actpots_df.index) - 1:
+			# assume that the first index is always the onset of an AP
+			onset = index
+			
+			len_df = len(actpots_df.index)
+			# increase the DF(!) index as long as the time distance to the next row is small enough
+			while (abs(actpots_df.iloc[index + 1][self.time_channel] - actpots_df.iloc[index][self.time_channel]) < max_gap_time):
+				index = index + 1
+				# break out of the loop if we reached the end
+				if (index == len_df - 1):
+					break
+				
+			# then, this is the last index
+			offset = index
+				
+			# create AP object from the shortened dataframe
+			# range does not include the last position, therefore + 1 !
+			# also, pass the electrical stimuli so that the class can get the closest one
+			# print(str(onset) + " to " + str(offset))
+			ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli)
+			actpots.append(ap)
+			
+			# "jump" to the next AP
+			index = index + 1
+	
+		print("List of APs created.")
+		return actpots
+		
 		
 	# helper function to return rows that are unequal NaN
 	def getRowsWhereNotNaN(self, channel_name):
@@ -27,7 +94,17 @@ class SpikeImporter:
 		
 	# return the electrical pulses from the digmark channel
 	def getElectricalStimuli(self, channel_name):
-		return self.getRowsWhereEqualsOne(channel_name)
+		# get rows where stimulus channel is one (where stimulus fired)
+		stimuli_df = self.getRowsWhereEqualsOne(self.stimulus_channel)
+		
+		# put all the stimuli into a list object
+		el_stimuli = []
+		for index, row in stimuli_df.iterrows():
+			es = ElectricalStimulus(input_data = row)
+			el_stimuli.append(es)
+		
+		print("List of eletrical stimuli created.")
+		return el_stimuli
 		
 	# helper function that return rows where channel is one
 	def getRowsWhereEqualsOne(self, channel_name):
