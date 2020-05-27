@@ -3,7 +3,7 @@
 # we assume that x[0] is the time
 # and x[1] is the normalized energy
 def actionPotDistance(x, y):
-	energy_importance = 0.0005
+	energy_importance = 10e-7
 
 	time_diff = abs(x[0] - y[0])
 	energy_diff = abs(x[1] - y[1])
