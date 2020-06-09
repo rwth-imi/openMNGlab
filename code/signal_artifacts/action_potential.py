@@ -11,12 +11,16 @@ class ActionPotential:
 	dist_to_prev_el_stimulus = None
 	dist_to_prev_mech_stimulus = None
 	norm_energy = None
+	channel_index = None
 	
 	# construct an AP class from a pandas dataframe containing only the rows for the AP
-	def __init__(self, input_df, el_stimuli, mech_stimuli, time_column = "Time", signal_column = "1 Signal", verbose = False):
+	def __init__(self, input_df, el_stimuli, mech_stimuli, time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
 		# get on- and offset (in seconds) for this AP
 		self.onset = input_df.iloc[0][time_column]
 		self.offset = input_df.iloc[-1][time_column]
+		
+		# set the channel index, e.g. for different marker shapes in a scatter plot
+		self.channel_index = channel_index
 	
 		# calculated the sum-squares energy of the AP signal
 		self.norm_energy = ActionPotential.calculateNormalizedEnergy(signal_values = input_df[signal_column].values)
@@ -102,3 +106,6 @@ class ActionPotential:
 		
 	def getNormalizedEnergy(self):
 		return self.norm_energy
+		
+	def getChannelIndex(self):
+		return self.channel_index

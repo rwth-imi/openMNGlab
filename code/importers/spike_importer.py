@@ -55,7 +55,7 @@ class SpikeImporter:
 			
 		# get the APs from all marker channels
 		actpots = []
-		for ap_marker_channel in self.ap_marker_channels:	
+		for channel_index, ap_marker_channel in enumerate(self.ap_marker_channels):	
 			# get the rows from the AP where Spike registered some AP matching our template
 			actpots_df = self.getRowsWhereNotNaN(ap_marker_channel)
 			
@@ -81,7 +81,7 @@ class SpikeImporter:
 				# range does not include the last position, therefore + 1 !
 				# also, pass the electrical stimuli so that the class can get the closest one
 				# print(str(onset) + " to " + str(offset))
-				ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, verbose = verbose)
+				ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, channel_index = channel_index, verbose = verbose)
 				actpots.append(ap)
 				
 				# "jump" to the next AP
