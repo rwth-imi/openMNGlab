@@ -2,8 +2,13 @@
 # it should prioritize the time over the signal energy
 # we assume that x[0] is the time
 # and x[1] is the normalized energy
-def actionPotDistance_ElStim_Energy(x, y):
-	energy_importance = 10e-6
+def TimeDistToStimulus(x, y):
+	time_diff = abs(x[0] - y[0])
+	
+	return time_diff
+
+def TimeDistAndEnergy(x, y):
+	energy_importance = 10e-7
 
 	time_diff = abs(x[0] - y[0])
 	energy_diff = abs(x[1] - y[1])
