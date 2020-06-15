@@ -14,7 +14,7 @@ class ActionPotential:
 	channel_index = None
 	
 	# construct an AP class from a pandas dataframe containing only the rows for the AP
-	def __init__(self, input_df, el_stimuli, mech_stimuli, time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
+	def __init__(self, input_df, el_stimuli = [], mech_stimuli = [], time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
 		# get on- and offset (in seconds) for this AP
 		self.onset = input_df.iloc[0][time_column]
 		self.offset = input_df.iloc[-1][time_column]
@@ -68,6 +68,11 @@ class ActionPotential:
 	
 	# calculate distance to prev. eletrical stimulus
 	def calculateDistToPrevElStimulus(ap_onset, stimuli_list):
+		# if there is no electrical stimulus:
+		# return -1 so that the feature becomes insignificant
+		if not stimuli_list:
+			return -1
+	
 		prev_stimulus = ActionPotential.getPreviousElectricalStimulus(ap_onset, stimuli_list)
 		return (ap_onset - prev_stimulus.getTimepoint())
 		

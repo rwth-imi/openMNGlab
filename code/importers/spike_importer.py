@@ -21,9 +21,10 @@ class SpikeImporter:
 	stimulus_channel = None
 	ap_marker_channels = None
 	force_channel = None
+	extra_stimuli_channel = None
 	
 	# constructor loads a spike file from the given file path
-	def __init__(self, filepath, time_channel, signal_channel, stimulus_channel, ap_marker_channels = [], force_channel = None, custom_delimiter = ",", remove_apostrophes = True):
+	def __init__(self, filepath, time_channel, signal_channel, stimulus_channel, ap_marker_channels = [], force_channel = None, extra_stimuli_channel = None, custom_delimiter = ",", remove_apostrophes = True):
 		# set up pandas to expect NaN values in the data and load the file 
 		self.df = pd.read_csv(filepath_or_buffer = filepath, delimiter = custom_delimiter, na_values = "NaN", na_filter = True)
 		
@@ -39,6 +40,7 @@ class SpikeImporter:
 		if not ap_marker_channels:
 			print("No AP marker channel was given. But AP detection from signal is not yet implemented!")
 		self.force_channel = force_channel
+		self.extra_stimuli_channel = extra_stimuli_channel
 			
 	def getRawDataframe(self):
 		return self.df
@@ -46,7 +48,7 @@ class SpikeImporter:
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def getActionPotentials(self, max_gap_time, el_stimuli, mech_stimuli, verbose = False):
+	def getActionPotentials(self, max_gap_time, el_stimuli = [], mech_stimuli = [], verbose = False):
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not self.ap_marker_channels:
@@ -86,19 +88,36 @@ class SpikeImporter:
 				
 				# "jump" to the next AP
 				index = index + 1
+				
+			print("Finished processing AP channel " + str(channel_index + 1) + " out of " + str(len(self.ap_marker_channels)))
 	
 		print("List of APs created.")
 		return actpots
-				
+		
+	# get a list of the extra (interposed) stimuli
+	def getExtraStimuli(self, verbose = False):
+		# get rows where stimulus channel is one (where stimulus fired)
+		ex_stimuli_df = self.getRowsWhereEqualsOne(self.extra_stimuli_channel)
+		
+		# put all the stimuli into a list object
+		ex_stimuli = []
+		for index, row in ex_stimuli_df.iterrows():
+			es = ElectricalStimulus(input_data = row, verbose = verbose)
+			ex_stimuli.append(es)
+		
+		print("List of extra eletrical stimuli created.")
+		return ex_stimuli
+		
+		
 	# return the electrical pulses from the digmark channel
-	def getElectricalStimuli(self):
+	def getElectricalStimuli(self, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
 		stimuli_df = self.getRowsWhereEqualsOne(self.stimulus_channel)
 		
 		# put all the stimuli into a list object
 		el_stimuli = []
 		for index, row in stimuli_df.iterrows():
-			es = ElectricalStimulus(input_data = row)
+			es = ElectricalStimulus(input_data = row, verbose = verbose)
 			el_stimuli.append(es)
 		
 		print("List of eletrical stimuli created.")

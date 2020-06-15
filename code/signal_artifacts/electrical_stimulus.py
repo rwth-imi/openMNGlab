@@ -14,7 +14,7 @@ class ElectricalStimulus:
 		
 		if verbose == True:
 			print("Found el. stimulus signal at:")
-			print("Time = " + self.timepoint + "s")
+			print("Time = " + str(self.timepoint) + "s")
 			print("")
 			
 		return
