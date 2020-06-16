@@ -11,6 +11,7 @@ importlib.reload(signal_artifacts)
 from signal_artifacts import ActionPotential
 from signal_artifacts import ElectricalStimulus
 from signal_artifacts import MechanicalStimulus
+from signal_artifacts import ElectricalExtraStimulus
 
 class SpikeImporter:
 	# the dataframe that we work with
@@ -38,7 +39,7 @@ class SpikeImporter:
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def getActionPotentials(self, ap_marker_channels, max_gap_time, el_stimuli = [], mech_stimuli = [], verbose = False):
+	def getActionPotentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], verbose = False):
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not ap_marker_channels:
@@ -85,18 +86,46 @@ class SpikeImporter:
 		return actpots
 		
 	# get a list of the extra (interposed) stimuli
-	def getExtraStimuli(self, extra_stimulus_channel, verbose = False):
+	# two electrical stimuli are put into a single instance of the "extra stimulus" object
+	# if their distance is less than max_gap_time
+	# from the thus created train of stimuli, we can then extract stuff such as
+	# number of stimuli, frequency and distance to next regular stimulus
+	def getExtraStimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
 		ex_stimuli_df = self.getRowsWhereEqualsOne(extra_stimulus_channel)
-		
-		# put all the stimuli into a list object
-		ex_stimuli = []
-		for index, row in ex_stimuli_df.iterrows():
-			es = ElectricalStimulus(input_data = row, verbose = verbose)
-			ex_stimuli.append(es)
-		
+		len_df = len(ex_stimuli_df.index)
+	
+		# go over the dataframe to identify "stimulus trains"
+		el_ex_stimuli = []
+		index = 0
+		while index < len_df - 1:
+			# start with an empty list
+			stimuli_train = []
+			# but immediately add the first stimulus
+			stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index]))
+			
+			# increase the DF(!) index as long as the time distance to the next row is small enough
+			while (abs(ex_stimuli_df.iloc[index + 1][self.time_channel] - ex_stimuli_df.iloc[index][self.time_channel]) < max_gap_time):
+				# the distance is small enough, so jump to next row and add the stimulus to the current train
+				index = index + 1
+				stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index]))
+				
+				# break out of the loop if we reached the end
+				if (index == len_df - 1):
+					break
+				
+			# create the object for the electrical extra stimulus
+			# that is created from the list of the stimulus train
+			# and requires the list of regular frequent stimuli
+			# to calucate the distances
+			el_ex_stimulus = ElectricalExtraStimulus(extra_el_stimuli = stimuli_train, regular_stimuli = regular_el_stimuli, verbose = verbose)
+			el_ex_stimuli.append(el_ex_stimulus)
+			
+			# "jump" to the next train of stimuli
+			index = index + 1
+				
 		print("List of extra eletrical stimuli created.")
-		return ex_stimuli
+		return el_ex_stimuli
 		
 	# return the electrical pulses from the digmark channel
 	def getElectricalStimuli(self, regular_stimulus_channel, verbose = False):
