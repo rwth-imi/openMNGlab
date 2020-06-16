@@ -18,13 +18,9 @@ class SpikeImporter:
 	# save the channel names here to ease usage of this class from the outside
 	time_channel = None
 	signal_channel = None
-	stimulus_channel = None
-	ap_marker_channels = None
-	force_channel = None
-	extra_stimuli_channel = None
 	
 	# constructor loads a spike file from the given file path
-	def __init__(self, filepath, time_channel, signal_channel, stimulus_channel, ap_marker_channels = [], force_channel = None, extra_stimuli_channel = None, custom_delimiter = ",", remove_apostrophes = True):
+	def __init__(self, filepath, time_channel, signal_channel, custom_delimiter = ",", remove_apostrophes = True):
 		# set up pandas to expect NaN values in the data and load the file 
 		self.df = pd.read_csv(filepath_or_buffer = filepath, delimiter = custom_delimiter, na_values = "NaN", na_filter = True)
 		
@@ -35,12 +31,6 @@ class SpikeImporter:
 		# write the channel names into our class variables
 		self.time_channel = time_channel
 		self.signal_channel = signal_channel
-		self.stimulus_channel = stimulus_channel
-		self.ap_marker_channels = ap_marker_channels
-		if not ap_marker_channels:
-			print("No AP marker channel was given. But AP detection from signal is not yet implemented!")
-		self.force_channel = force_channel
-		self.extra_stimuli_channel = extra_stimuli_channel
 			
 	def getRawDataframe(self):
 		return self.df
@@ -48,16 +38,16 @@ class SpikeImporter:
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def getActionPotentials(self, max_gap_time, el_stimuli = [], mech_stimuli = [], verbose = False):
+	def getActionPotentials(self, ap_marker_channels, max_gap_time, el_stimuli = [], mech_stimuli = [], verbose = False):
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
-		if not self.ap_marker_channels:
+		if not ap_marker_channels:
 			print("Getting APs from the signal itself is not yet supported.")
 			return None		
 			
 		# get the APs from all marker channels
 		actpots = []
-		for channel_index, ap_marker_channel in enumerate(self.ap_marker_channels):	
+		for channel_index, ap_marker_channel in enumerate(ap_marker_channels):	
 			# get the rows from the AP where Spike registered some AP matching our template
 			actpots_df = self.getRowsWhereNotNaN(ap_marker_channel)
 			
@@ -89,15 +79,15 @@ class SpikeImporter:
 				# "jump" to the next AP
 				index = index + 1
 				
-			print("Finished processing AP channel " + str(channel_index + 1) + " out of " + str(len(self.ap_marker_channels)))
+			print("Finished processing AP channel " + str(channel_index + 1) + " out of " + str(len(ap_marker_channels)))
 	
 		print("List of APs created.")
 		return actpots
 		
 	# get a list of the extra (interposed) stimuli
-	def getExtraStimuli(self, verbose = False):
+	def getExtraStimuli(self, extra_stimulus_channel, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
-		ex_stimuli_df = self.getRowsWhereEqualsOne(self.extra_stimuli_channel)
+		ex_stimuli_df = self.getRowsWhereEqualsOne(extra_stimulus_channel)
 		
 		# put all the stimuli into a list object
 		ex_stimuli = []
@@ -108,11 +98,10 @@ class SpikeImporter:
 		print("List of extra eletrical stimuli created.")
 		return ex_stimuli
 		
-		
 	# return the electrical pulses from the digmark channel
-	def getElectricalStimuli(self, verbose = False):
+	def getElectricalStimuli(self, regular_stimulus_channel, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
-		stimuli_df = self.getRowsWhereEqualsOne(self.stimulus_channel)
+		stimuli_df = self.getRowsWhereEqualsOne(regular_stimulus_channel)
 		
 		# put all the stimuli into a list object
 		el_stimuli = []
@@ -124,9 +113,9 @@ class SpikeImporter:
 		return el_stimuli
 		
 	# return list of mechanical stimlui from the force channel
-	def getMechanicalStimuli(self, threshold, max_gap_time):
+	def getMechanicalStimuli(self, force_channel, threshold, max_gap_time):
 		# get rows where force channel exceeds threshold
-		force_df = self.getRowsWhereExceedsThreshold(channel_name = self.force_channel, threshold = threshold)
+		force_df = self.getRowsWhereExceedsThreshold(channel_name = force_channel, threshold = threshold)
 		
 		# then, create a list of the APs in this channel
 		mech_stimuli = []
