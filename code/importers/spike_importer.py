@@ -39,7 +39,7 @@ class SpikeImporter:
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def getActionPotentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], verbose = False):
+	def getActionPotentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not ap_marker_channels:
@@ -74,7 +74,7 @@ class SpikeImporter:
 				# range does not include the last position, therefore + 1 !
 				# also, pass the electrical stimuli so that the class can get the closest one
 				# print(str(onset) + " to " + str(offset))
-				ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, channel_index = channel_index, verbose = verbose)
+				ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, el_extra_stimuli = el_extra_stimuli, channel_index = channel_index, verbose = verbose)
 				actpots.append(ap)
 				
 				# "jump" to the next AP
