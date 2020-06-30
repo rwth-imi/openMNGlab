@@ -24,8 +24,8 @@ class FallingLeafPlot:
 			plt.scatter(x = actpot.getDistanceToPreviousRegularElectricalStimulus(), y = prev_stimulus.getTimepoint(), marker = "x", color = "r")
 	
 		plt.xlabel("Response Latency (s)")
-		plt.ylabel("Time (s)"
-		plt.margins(x = 0.1)
+		plt.ylabel("Time (s)")
+		plt.gca().margins(x = 0.1)
 	
 		# invert the y-axis so that 0 is on top and the time increases downwards
 		plt.gca().invert_yaxis()
@@ -36,4 +36,5 @@ class FallingLeafPlot:
 	
 	# TODO implement saving of the plot
 	def save_to_file(self, filename):
-		return None
+		self.fig.savefig(fname = filename, dpi = 400)
+		print("Figure saved.")
