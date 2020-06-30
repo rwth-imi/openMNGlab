@@ -7,9 +7,7 @@ def TimeDistToStimulus(x, y):
 	
 	return time_diff
 
-def TimeDistAndEnergy(x, y):
-	energy_importance = 10e-7
-
+def TimeDistAndEnergy(x, y, energy_importance = 10e-7):
 	time_diff = abs(x[0] - y[0])
 	energy_diff = abs(x[1] - y[1])
 

@@ -76,7 +76,7 @@ class ActionPotential:
 		if not stimuli_list:
 			return -1, False, None
 			
-		prev_stimulus = ActionPotential.getPreviousStimulus(ap_onset, stimuli_list)
+		prev_stimulus = ActionPotential.findPreviousStimulus(ap_onset, stimuli_list)
 		
 		# calculate the distance and check if this AP lies within the time the mechanical pressure is applied
 		dist = ap_onset - prev_stimulus.getOnset()
@@ -91,7 +91,7 @@ class ActionPotential:
 		if not stimuli_list:
 			return -1, False, None
 			
-		prev_stimulus = ActionPotential.getPreviousStimulus(ap_onset, stimuli_list)
+		prev_stimulus = ActionPotential.findPreviousStimulus(ap_onset, stimuli_list)
 		
 		# calculate the distance and check if this AP lies within the time the mechanical pressure is applied
 		dist = ap_onset - prev_stimulus.getOffset()
@@ -102,7 +102,7 @@ class ActionPotential:
 	# go through the (ascending) list of mech. stimuli to find the previous stimulus
 	# this is, according to the onset. 
 	# If the AP is behind the stimulus onset, the stimulus is returned
-	def getPreviousStimulus(ap_onset, stimuli_list):
+	def findPreviousStimulus(ap_onset, stimuli_list):
 		index = 0
 		
 		len_list = len(stimuli_list)
@@ -122,13 +122,13 @@ class ActionPotential:
 		if not stimuli_list:
 			return -1, None
 	
-		prev_stimulus = ActionPotential.getPreviousRegElectricalStimulus(ap_onset, stimuli_list)
+		prev_stimulus = ActionPotential.findPreviousRegElectricalStimulus(ap_onset, stimuli_list)
 		dist = ap_onset - prev_stimulus.getTimepoint()
 		return dist, prev_stimulus
 		
 	# go through the (ascending) list of el. stimuli to find the previous stimulus
 	# this is, according to the timestamp
-	def getPreviousRegElectricalStimulus(ap_onset, stimuli_list):
+	def findPreviousRegElectricalStimulus(ap_onset, stimuli_list):		
 		index = 0
 		
 		len_list = len(stimuli_list)
@@ -139,7 +139,7 @@ class ActionPotential:
 				break
 			
 		return stimuli_list[index]
-	
+			
 	# calculate a crude approximation of the "signal energy":
 	# 1.) sum the squared signal values and
 	# 2.) divide by the number of values for normalization
@@ -152,6 +152,10 @@ class ActionPotential:
 		
 		# return the "normalized" energy
 		return total_energy / num_values
+		
+	# only getters from here on	
+	def getPreviousRegElectricalStimulus(self):
+		return self.prev_el_stimulus
 		
 	def getDistanceToPreviousRegularElectricalStimulus(self):
 		return self.dist_to_prev_reg_el_stimulus
