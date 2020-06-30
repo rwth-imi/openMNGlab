@@ -14,9 +14,12 @@ class FallingLeafPlot:
 	def plot(self, regular_stimuli, action_potentials, raw_signal = None):
 		fig = plt.figure(figsize = (self.width, self.height))
 	
+		# TODO plot raw signal
+	
 		# plot the regular stimuli for reference
 		for regstim in regular_stimuli:
 			plt.scatter(x = 0, y = regstim.getTimepoint(), marker = "*", color = "k")
+			plt.gca().axhline(y = regstim.getTimepoint(), color = "g", linewidth = ".5")
 			
 		# then, the actpots that presumably belong to this track
 		for actpot in action_potentials:

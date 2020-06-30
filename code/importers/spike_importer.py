@@ -36,6 +36,9 @@ class SpikeImporter:
 	def getRawDataframe(self):
 		return self.df
 			
+	def getRawSignal(self):
+		return self.df[:][self.signal_channel].values
+			
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
