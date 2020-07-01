@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+from math import ceil
 
 '''
 	**********************************
@@ -11,20 +13,60 @@ class FallingLeafPlot:
 		self.width = width
 		self.height = height
 	
-	def plot(self, regular_stimuli, action_potentials, raw_signal = None):
+	def plot(self, regular_stimuli, action_potentials, plot_hlines = True, plot_raw_signal = False, max_signal_value = 500, time_start = 0, time_stop = float("infinity"), post_stimulus_timeframe = 0.05):
 		fig = plt.figure(figsize = (self.width, self.height))
 	
-		# TODO plot raw signal
-	
 		# plot the regular stimuli for reference
-		for regstim in regular_stimuli:
-			plt.scatter(x = 0, y = regstim.getTimepoint(), marker = "*", color = "k")
-			plt.gca().axhline(y = regstim.getTimepoint(), color = "g", linewidth = ".5")
+		for index, regstim in enumerate(regular_stimuli):
+			timept = regstim.getTimepoint()
+			
+			# check, if this is in the timerange that we want
+			if timept > time_start and timept < time_stop:
+				plt.scatter(x = 0, y = regstim.getTimepoint(), marker = "*", color = "k")
+			
+				# plot horizontal helper lines
+				if plot_hlines == True:
+					plt.gca().axhline(y = regstim.getTimepoint(), color = "g", linewidth = ".5")
+					
+				# plot raw signal
+				if plot_raw_signal:
+					raw_signal = regstim.getIntervalRawSignal()
+					
+					# check, how far the signal should be drawn
+					t_max = min(regstim.getIntervalLength(), post_stimulus_timeframe)
+					last_sample = ceil(len(raw_signal) * (t_max / regstim.getIntervalLength()))
+					raw_signal = raw_signal[range(0, last_sample)]
+					
+					# check how much space we have for scaling the raw data
+					if index > 0:
+						timediff_prev = regstim.getTimepoint() - regular_stimuli[index - 1].getTimepoint()
+					else:
+						timediff_prev = 2.0
+						
+					if index < len(regular_stimuli) - 1:
+						timediff_next = regular_stimuli[index + 1].getTimepoint() - regstim.getTimepoint()
+					else:
+						timediff_prev = 2.0
+						
+					# then, calculate the space we have for plotting the raw values
+					space_margin = .45 * min(timediff_prev, timediff_next)
+					
+					# scale the signal accordingly
+					signal_scaling_factor = space_margin / max_signal_value
+					raw_signal = [signal_scaling_factor * val + regstim.getTimepoint() for val in raw_signal]
+					
+					# create a linspace to have an x-axis for the values
+					signal_time = np.linspace(0, t_max, len(raw_signal))
+					plt.plot(signal_time, raw_signal, "b-", linewidth = .5)
 			
 		# then, the actpots that presumably belong to this track
 		for actpot in action_potentials:
+			# get previous stimulus and its timestamp
 			prev_stimulus = actpot.getPreviousRegElectricalStimulus()
-			plt.scatter(x = actpot.getDistanceToPreviousRegularElectricalStimulus(), y = prev_stimulus.getTimepoint(), marker = "x", color = "r")
+			prev_timept = prev_stimulus.getTimepoint()
+			
+			if prev_timept > time_start and prev_timept < time_stop:
+				plt.scatter(x = actpot.getDistanceToPreviousRegularElectricalStimulus(), y = prev_stimulus.getTimepoint(), marker = "x", color = "r")
 	
 		plt.xlabel("Response Latency (s)")
 		plt.ylabel("Time (s)")

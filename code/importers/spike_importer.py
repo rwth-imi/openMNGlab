@@ -21,7 +21,7 @@ class SpikeImporter:
 	signal_channel = None
 	
 	# constructor loads a spike file from the given file path
-	def __init__(self, filepath, time_channel, signal_channel, custom_delimiter = ",", remove_apostrophes = True):
+	def __init__(self, filepath, time_channel, signal_channel, sampling_rate = 20000, custom_delimiter = ",", remove_apostrophes = True):
 		# set up pandas to expect NaN values in the data and load the file 
 		self.df = pd.read_csv(filepath_or_buffer = filepath, delimiter = custom_delimiter, na_values = "NaN", na_filter = True)
 		
@@ -32,12 +32,79 @@ class SpikeImporter:
 		# write the channel names into our class variables
 		self.time_channel = time_channel
 		self.signal_channel = signal_channel
+		self.sampling_rate = sampling_rate
 			
 	def getRawDataframe(self):
 		return self.df
 			
 	def getRawSignal(self):
 		return self.df[:][self.signal_channel].values
+		
+	# get the raw signal, chopped by the regular stimuli
+	# it is preferable to provide a time range, else this will take forever...
+	def getRawSignalSplitByStimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")):
+		raw_signal = self.df[:][self.signal_channel]
+		raw_intervals = []
+	
+		try:
+			# cut out an interval for each of the stimuli
+			stimulus_iter = iter(el_stimuli)
+			
+			# find the first interval that lies within the desired range
+			timept_start = -1
+			while timept_start < start_time:
+				stimulus = next(stimulus_iter)
+				timept_start = stimulus.getTimepoint()
+				
+			if verbose == True:
+				print("Starting at " + str(timept_start) + "s")
+			
+			# iterate over the df to find the beginning and end indices of each interval
+			df_index = start_time * self.sampling_rate
+			
+			while True:
+				# search for beginning
+				while self.df.iloc[df_index + 1][self.time_channel] < timept_start:
+					df_index = df_index + 1
+				index_start = df_index
+				
+				# get the next stimulus to search for the end
+				next_stimulus = next(stimulus_iter)
+				timept_stop = next_stimulus.getTimepoint()
+				
+				while self.df.iloc[df_index + 1][self.time_channel] < timept_stop:
+					df_index = df_index + 1
+				index_stop = df_index
+				
+				# retrieve this interval from the dataframe
+				raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
+				stimulus.setIntervalRawSignal(raw_interval)
+				stimulus.setIntervalLength(timept_stop - timept_start)
+				raw_intervals.append(raw_interval)
+				
+				if verbose == True:
+					print("Cropped interval from " + str(self.df.iloc[index_start][self.time_channel]) + "s to " + str(self.df.iloc[index_stop][self.time_channel]) + "s")
+				
+				# this second stimulus is also the beginning of the next interval
+				stimulus = next_stimulus
+				timept_start = timept_stop
+				
+				# STOP if we exceeded the desired time range
+				if timept_stop > stop_time:
+					break
+			
+		# this exception will be thrown if we reached the last stimulus
+		except StopIteration:
+			index_stop = len(self.df.index)
+			
+			# retrieve this interval from the dataframe
+			raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
+			stimulus.setIntervalRawSignal(raw_interval)
+			raw_intervals.append(raw_interval)
+			
+		print("Done with cropping the intervals")
+			
+		return raw_intervals
 			
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
