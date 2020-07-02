@@ -43,16 +43,16 @@ class ActionPotential:
 		self.channel_index = channel_index
 	
 		# calculated the sum-squares energy of the AP signal
-		self.norm_energy = ActionPotential.calculateNormalizedEnergy(signal_values = input_df[signal_column].values)
+		self.norm_energy = ActionPotential.calc_normalized_energy(signal_values = input_df[signal_column].values)
 		
 		# calculate the distance to the previous electrical and mechanical stimuli
-		self.dist_to_prev_reg_el_stimulus, self.prev_el_stimulus = ActionPotential.calculateDistToPrevRegElStimulus(ap_onset = self.onset, stimuli_list = el_stimuli)
+		self.dist_to_prev_reg_el_stimulus, self.prev_el_stimulus = ActionPotential.calc_dist_to_prev_reg_el_stimulus(ap_onset = self.onset, stimuli_list = el_stimuli)
 		
 		# get distance to onset of previous mechanical stimulus and check if the AP might be caused by it
-		self.dist_to_prev_mech_stimulus, self.belonging_to_mechanical_stimulus, self.prev_mech_stimulus = ActionPotential.calculateDistToPrevMechStimulus(ap_onset = self.onset, stimuli_list = mech_stimuli)
+		self.dist_to_prev_mech_stimulus, self.belonging_to_mechanical_stimulus, self.prev_mech_stimulus = ActionPotential.calculate_dist_to_prev_mech_stimulus(ap_onset = self.onset, stimuli_list = mech_stimuli)
 		
 		# get distance to offset of previous electrical extra stimulus and check if the AP might be caused by it
-		self.dist_to_prev_el_extra_stimulus, self.belonging_to_extra_stimulus, self.prev_el_extra_stimulus = ActionPotential.calculateDistToPrevElExtraStimulus(ap_onset = self.onset, stimuli_list = el_extra_stimuli)
+		self.dist_to_prev_el_extra_stimulus, self.belonging_to_extra_stimulus, self.prev_el_extra_stimulus = ActionPotential.calculate_dist_to_prev_el_extra_stimulus(ap_onset = self.onset, stimuli_list = el_extra_stimuli)
 		
 		if verbose == True:
 			print("Found action potential with:")
@@ -70,43 +70,43 @@ class ActionPotential:
 		return
 	
 	# calculate the distance to the onset (!) of the previous mechanical stimulus
-	def calculateDistToPrevMechStimulus(ap_onset, stimuli_list):
+	def calculate_dist_to_prev_mech_stimulus(ap_onset, stimuli_list):
 		# if there is no mechanical stimulus:
 		# return -1 so that the feature becomes insignificant
 		if not stimuli_list:
 			return -1, False, None
 			
-		prev_stimulus = ActionPotential.findPreviousStimulus(ap_onset, stimuli_list)
+		prev_stimulus = ActionPotential.find_prev_stimulus(ap_onset, stimuli_list)
 		
 		# calculate the distance and check if this AP lies within the time the mechanical pressure is applied
-		dist = ap_onset - prev_stimulus.getOnset()
-		lies_within = True if ap_onset < prev_stimulus.getOffset() else False
+		dist = ap_onset - prev_stimulus.get_onset()
+		lies_within = True if ap_onset < prev_stimulus.get_offset() else False
 		
 		return dist, lies_within, prev_stimulus
 	
 	# calculate the distance to the offset (!) of the previous electrical stimulus
-	def calculateDistToPrevElExtraStimulus(ap_onset, stimuli_list):
+	def calculate_dist_to_prev_el_extra_stimulus(ap_onset, stimuli_list):
 		# if there is no mechanical stimulus:
 		# return -1 so that the feature becomes insignificant
 		if not stimuli_list:
 			return -1, False, None
 			
-		prev_stimulus = ActionPotential.findPreviousStimulus(ap_onset, stimuli_list)
+		prev_stimulus = ActionPotential.find_prev_stimulus(ap_onset, stimuli_list)
 		
 		# calculate the distance and check if this AP lies within the time the mechanical pressure is applied
-		dist = ap_onset - prev_stimulus.getOffset()
-		lies_within = True if ap_onset < prev_stimulus.getOffset() else False
+		dist = ap_onset - prev_stimulus.get_offset()
+		lies_within = True if ap_onset < prev_stimulus.get_offset() else False
 		
 		return dist, lies_within, prev_stimulus
 		
 	# go through the (ascending) list of mech. stimuli to find the previous stimulus
 	# this is, according to the onset. 
 	# If the AP is behind the stimulus onset, the stimulus is returned
-	def findPreviousStimulus(ap_onset, stimuli_list):
+	def find_prev_stimulus(ap_onset, stimuli_list):
 		index = 0
 		
 		len_list = len(stimuli_list)
-		while (ap_onset > stimuli_list[index + 1].getOnset()):
+		while (ap_onset > stimuli_list[index + 1].get_onset()):
 			index = index + 1
 			# we don't want to exceed the list length
 			if (index == len_list - 1):
@@ -116,23 +116,23 @@ class ActionPotential:
 			
 	
 	# calculate distance to prev. eletrical stimulus
-	def calculateDistToPrevRegElStimulus(ap_onset, stimuli_list):
+	def calc_dist_to_prev_reg_el_stimulus(ap_onset, stimuli_list):
 		# if there is no electrical stimulus:
 		# return -1 so that the feature becomes insignificant
 		if not stimuli_list:
 			return -1, None
 	
-		prev_stimulus = ActionPotential.findPreviousRegElectricalStimulus(ap_onset, stimuli_list)
-		dist = ap_onset - prev_stimulus.getTimepoint()
+		prev_stimulus = ActionPotential.find_prev_reg_el_stimulus(ap_onset, stimuli_list)
+		dist = ap_onset - prev_stimulus.get_timepoint()
 		return dist, prev_stimulus
 		
 	# go through the (ascending) list of el. stimuli to find the previous stimulus
 	# this is, according to the timestamp
-	def findPreviousRegElectricalStimulus(ap_onset, stimuli_list):		
+	def find_prev_reg_el_stimulus(ap_onset, stimuli_list):		
 		index = 0
 		
 		len_list = len(stimuli_list)
-		while(ap_onset > stimuli_list[index + 1].getTimepoint()):
+		while(ap_onset > stimuli_list[index + 1].get_timepoint()):
 			index = index + 1
 			# we don't want to exceed the list length
 			if (index == len_list - 1):
@@ -143,7 +143,7 @@ class ActionPotential:
 	# calculate a crude approximation of the "signal energy":
 	# 1.) sum the squared signal values and
 	# 2.) divide by the number of values for normalization
-	def calculateNormalizedEnergy(signal_values):
+	def calc_normalized_energy(signal_values):
 		num_values = len(signal_values)
 		
 		# square the values and sum those squares up
@@ -154,20 +154,20 @@ class ActionPotential:
 		return total_energy / num_values
 		
 	# only getters from here on	
-	def getPreviousRegElectricalStimulus(self):
+	def get_prev_reg_el_stimulus(self):
 		return self.prev_el_stimulus
 		
-	def getDistanceToPreviousRegularElectricalStimulus(self):
+	def get_dist_to_prev_reg_el_stimulus(self):
 		return self.dist_to_prev_reg_el_stimulus
 		
-	def getDistanceToPreviousMechanicalStimulus(self):
+	def get_dist_to_prev_mechl_stimulus(self):
 		return self.dist_to_prev_mech_stimulus
 		
-	def getDistanceToPreviousElectricalExtraStimulus(self):
+	def get_dist_to_prev_el_extra_stimulus(self):
 		return self.dist_to_prev_el_extra_stimulus
 		
-	def getNormalizedEnergy(self):
+	def get_normalized_energy(self):
 		return self.norm_energy
 		
-	def getChannelIndex(self):
+	def get_channel_index(self):
 		return self.channel_index

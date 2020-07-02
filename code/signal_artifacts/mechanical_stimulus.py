@@ -25,11 +25,11 @@ class MechanicalStimulus:
 			
 		return
 		
-	def getOnset(self):
+	def get_onset(self):
 		return self.onset
 		
-	def getOffset(self):
+	def get_offset(self):
 		return self.offset
 		
-	def getAmplitude(self):
+	def get_amplitude(self):
 		return self.amplitude

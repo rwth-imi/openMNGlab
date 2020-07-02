@@ -21,17 +21,17 @@ class ElectricalStimulus:
 			
 		return
 		
-	def getTimepoint(self):
+	def get_timepoint(self):
 		return self.timepoint
 		
-	def setIntervalRawSignal(self, raw_signal):
+	def set_interval_raw_signal(self, raw_signal):
 		self.interval_raw_signal = raw_signal
 		
-	def getIntervalRawSignal(self):
+	def get_interval_raw_signal(self):
 		return self.interval_raw_signal
 
-	def setIntervalLength(self, interval_length):
+	def set_interval_length(self, interval_length):
 		self.interval_length = interval_length
 	
-	def getIntervalLength(self):
+	def get_interval_length(self):
 		return self.interval_length

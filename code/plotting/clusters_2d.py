@@ -14,7 +14,7 @@ class ClusterPlot2D:
 		
 	def plot(self, actpots, feature_vectors, cluster_labels, markers = ['o', 'x', 's', 'D'], cluster_colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'gray'], xlabel = "Distance to stimulus (s)", ylabel = "Normalized AP energy (mV^2)", xscale = 'linear'):
 		# retrieve the channel index for each of the APs
-		channel_indices = np.array([ap.getChannelIndex() for ap in actpots])
+		channel_indices = np.array([ap.get_channel_index() for ap in actpots])
 		
 		fig = plt.figure(figsize = (self.width, self.height))
 		

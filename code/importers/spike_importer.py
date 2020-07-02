@@ -30,15 +30,15 @@ class SpikeImporter:
 		self.signal_channel = signal_channel
 		self.sampling_rate = sampling_rate
 			
-	def getRawDataframe(self):
+	def get_raw_dataframe(self):
 		return self.df
 			
-	def getRawSignal(self):
+	def get_raw_signal(self):
 		return self.df[:][self.signal_channel].values
 		
 	# get the raw signal, chopped by the regular stimuli
 	# it is preferable to provide a time range, else this will take forever...
-	def getRawSignalSplitByStimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")):
+	def get_raw_signal_split_by_stimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")):
 		raw_signal = self.df[:][self.signal_channel]
 		raw_intervals = []
 	
@@ -50,7 +50,7 @@ class SpikeImporter:
 			timept_start = -1
 			while timept_start < start_time:
 				stimulus = next(stimulus_iter)
-				timept_start = stimulus.getTimepoint()
+				timept_start = stimulus.get_timepoint()
 				
 			if verbose == True:
 				print("Starting at " + str(timept_start) + "s")
@@ -66,7 +66,7 @@ class SpikeImporter:
 				
 				# get the next stimulus to search for the end
 				next_stimulus = next(stimulus_iter)
-				timept_stop = next_stimulus.getTimepoint()
+				timept_stop = next_stimulus.get_timepoint()
 				
 				while self.df.iloc[df_index + 1][self.time_channel] < timept_stop:
 					df_index = df_index + 1
@@ -74,8 +74,8 @@ class SpikeImporter:
 				
 				# retrieve this interval from the dataframe
 				raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
-				stimulus.setIntervalRawSignal(raw_interval)
-				stimulus.setIntervalLength(timept_stop - timept_start)
+				stimulus.set_interval_raw_signal(raw_interval)
+				stimulus.set_interval_length(timept_stop - timept_start)
 				raw_intervals.append(raw_interval)
 				
 				if verbose == True:
@@ -95,7 +95,7 @@ class SpikeImporter:
 			
 			# retrieve this interval from the dataframe
 			raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
-			stimulus.setIntervalRawSignal(raw_interval)
+			stimulus.set_interval_raw_signal(raw_interval)
 			raw_intervals.append(raw_interval)
 			
 		print("Done with cropping the intervals")
@@ -105,7 +105,7 @@ class SpikeImporter:
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def getActionPotentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
+	def get_action_potentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not ap_marker_channels:
@@ -116,7 +116,7 @@ class SpikeImporter:
 		actpots = []
 		for channel_index, ap_marker_channel in enumerate(ap_marker_channels):	
 			# get the rows from the AP where Spike registered some AP matching our template
-			actpots_df = self.getRowsWhereNotNaN(ap_marker_channel)
+			actpots_df = self.__get_rows_where_not_nan(ap_marker_channel)
 			
 			# then, create a list of the APs in this channel
 			
@@ -156,9 +156,9 @@ class SpikeImporter:
 	# if their distance is less than max_gap_time
 	# from the thus created train of stimuli, we can then extract stuff such as
 	# number of stimuli, frequency and distance to next regular stimulus
-	def getExtraStimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False):
+	def get_extra_stimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
-		ex_stimuli_df = self.getRowsWhereEqualsOne(extra_stimulus_channel)
+		ex_stimuli_df = self.__get_rows_where_equals_one(extra_stimulus_channel)
 		len_df = len(ex_stimuli_df.index)
 	
 		# go over the dataframe to identify "stimulus trains"
@@ -194,9 +194,9 @@ class SpikeImporter:
 		return el_ex_stimuli
 		
 	# return the electrical pulses from the digmark channel
-	def getElectricalStimuli(self, regular_stimulus_channel, verbose = False):
+	def get_electrical_stimuli(self, regular_stimulus_channel, verbose = False):
 		# get rows where stimulus channel is one (where stimulus fired)
-		stimuli_df = self.getRowsWhereEqualsOne(regular_stimulus_channel)
+		stimuli_df = self.__get_rows_where_equals_one(regular_stimulus_channel)
 		
 		# put all the stimuli into a list object
 		el_stimuli = []
@@ -208,9 +208,9 @@ class SpikeImporter:
 		return el_stimuli
 		
 	# return list of mechanical stimlui from the force channel
-	def getMechanicalStimuli(self, force_channel, threshold, max_gap_time):
+	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time):
 		# get rows where force channel exceeds threshold
-		force_df = self.getRowsWhereExceedsThreshold(channel_name = force_channel, threshold = threshold)
+		force_df = self.__get_rows_where_exceeds_threshold(channel_name = force_channel, threshold = threshold)
 		
 		# then, create a list of the APs in this channel
 		mech_stimuli = []
@@ -248,13 +248,13 @@ class SpikeImporter:
 		return
 		
 	# helper function that return rows where channel is one
-	def getRowsWhereEqualsOne(self, channel_name):
+	def __get_rows_where_equals_one(self, channel_name):
 		return self.df[self.df[channel_name] == 1]
 		
 	# helper function to return rows that are unequal NaN
-	def getRowsWhereNotNaN(self, channel_name):
+	def __get_rows_where_not_nan(self, channel_name):
 		return self.df[~np.isnan(self.df[channel_name])]
 		
 	# helper function to get rows that exceed a certain threshold
-	def getRowsWhereExceedsThreshold(self, channel_name, threshold):
+	def __get_rows_where_exceeds_threshold(self, channel_name, threshold):
 		return self.df[self.df[channel_name] > threshold]
