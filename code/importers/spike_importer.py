@@ -2,10 +2,6 @@ import pandas as pd
 import numpy as np
 
 import signal_artifacts
-# reload the signal_artifacts classes
-# hacky workaround atm
-import importlib
-importlib.reload(signal_artifacts)
 
 # import our own classes for the signal artifacts
 from signal_artifacts import ActionPotential
