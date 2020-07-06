@@ -1,3 +1,5 @@
+from importers.mng_importer import MNGImporter
+
 import pandas as pd
 import numpy as np
 
@@ -9,7 +11,7 @@ from signal_artifacts import ElectricalStimulus
 from signal_artifacts import MechanicalStimulus
 from signal_artifacts import ElectricalExtraStimulus
 
-class SpikeImporter:
+class SpikeImporter(MNGImporter):
 	# the dataframe that we work with
 	df = None
 	# save the channel names here to ease usage of this class from the outside
@@ -45,48 +47,33 @@ class SpikeImporter:
 		try:
 			# cut out an interval for each of the stimuli
 			stimulus_iter = iter(el_stimuli)
+			stimulus = next(stimulus_iter)
 			
 			# find the first interval that lies within the desired range
-			timept_start = -1
-			while timept_start < start_time:
+			while stimulus.get_timepoint() < start_time:
 				stimulus = next(stimulus_iter)
-				timept_start = stimulus.get_timepoint()
 				
 			if verbose == True:
-				print("Starting at " + str(timept_start) + "s")
+				print("Starting at " + str(stimulus.get_timepoint()) + "s")
 			
-			# iterate over the df to find the beginning and end indices of each interval
-			df_index = start_time * self.sampling_rate
-			
-			while True:
-				# search for beginning
-				while self.df.iloc[df_index + 1][self.time_channel] < timept_start:
-					df_index = df_index + 1
-				index_start = df_index
-				
+			while True:				
 				# get the next stimulus to search for the end
 				next_stimulus = next(stimulus_iter)
-				timept_stop = next_stimulus.get_timepoint()
-				
-				while self.df.iloc[df_index + 1][self.time_channel] < timept_stop:
-					df_index = df_index + 1
-				index_stop = df_index
-				
+								
 				# retrieve this interval from the dataframe
-				raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
+				raw_interval = self.df.iloc[range(stimulus.get_dataframe_index(), next_stimulus.get_dataframe_index())][self.signal_channel].values
 				stimulus.set_interval_raw_signal(raw_interval)
-				stimulus.set_interval_length(timept_stop - timept_start)
+				stimulus.set_interval_length(next_stimulus.get_timepoint() - stimulus.get_timepoint())
 				raw_intervals.append(raw_interval)
 				
 				if verbose == True:
-					print("Cropped interval from " + str(self.df.iloc[index_start][self.time_channel]) + "s to " + str(self.df.iloc[index_stop][self.time_channel]) + "s")
+					print("Cropped interval from " + str(stimulus.get_timepoint()) + "s to " + str(next_stimulus.get_timepoint()) + "s")
 				
 				# this second stimulus is also the beginning of the next interval
 				stimulus = next_stimulus
-				timept_start = timept_stop
 				
 				# STOP if we exceeded the desired time range
-				if timept_stop > stop_time:
+				if next_stimulus.get_timepoint() > stop_time:
 					break
 			
 		# this exception will be thrown if we reached the last stimulus
@@ -94,7 +81,7 @@ class SpikeImporter:
 			index_stop = len(self.df.index)
 			
 			# retrieve this interval from the dataframe
-			raw_interval = self.df.iloc[range(index_start, index_stop)][self.signal_channel].values
+			raw_interval = self.df.iloc[range(stimulus.get_dataframe_index(), index_stop)][self.signal_channel].values
 			stimulus.set_interval_raw_signal(raw_interval)
 			raw_intervals.append(raw_interval)
 			
@@ -168,13 +155,13 @@ class SpikeImporter:
 			# start with an empty list
 			stimuli_train = []
 			# but immediately add the first stimulus
-			stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index]))
+			stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index], df_index = index))
 			
 			# increase the DF(!) index as long as the time distance to the next row is small enough
 			while (abs(ex_stimuli_df.iloc[index + 1][self.time_channel] - ex_stimuli_df.iloc[index][self.time_channel]) < max_gap_time):
 				# the distance is small enough, so jump to next row and add the stimulus to the current train
 				index = index + 1
-				stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index]))
+				stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index], df_index = index))
 				
 				# break out of the loop if we reached the end
 				if (index == len_df - 1):
@@ -201,7 +188,7 @@ class SpikeImporter:
 		# put all the stimuli into a list object
 		el_stimuli = []
 		for index, row in stimuli_df.iterrows():
-			es = ElectricalStimulus(input_data = row, verbose = verbose)
+			es = ElectricalStimulus(input_data = row, df_index = index, verbose = verbose)
 			el_stimuli.append(es)
 		
 		print("List of eletrical stimuli created.")
