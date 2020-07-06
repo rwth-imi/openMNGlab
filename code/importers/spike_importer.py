@@ -1,9 +1,7 @@
 from importers.mng_importer import MNGImporter
-
+from typing import List
 import pandas as pd
 import numpy as np
-
-import signal_artifacts
 
 # import our own classes for the signal artifacts
 from signal_artifacts import ActionPotential
@@ -35,12 +33,12 @@ class SpikeImporter(MNGImporter):
 	def get_raw_dataframe(self):
 		return self.df
 			
-	def get_raw_signal(self):
+	def get_raw_signal(self) -> List[float]:
 		return self.df[:][self.signal_channel].values
 		
 	# get the raw signal, chopped by the regular stimuli
 	# it is preferable to provide a time range, else this will take forever...
-	def get_raw_signal_split_by_stimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")):
+	def get_raw_signal_split_by_stimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")) -> List[List[float]]:
 		raw_signal = self.df[:][self.signal_channel]
 		raw_intervals = []
 	
@@ -92,7 +90,7 @@ class SpikeImporter(MNGImporter):
 	# return a list of action potentials for the gap times
 	# calculates the distance to the previous electrical stimuli
 	# calculates the distance to the previous force stimulus
-	def get_action_potentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
+	def get_action_potentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False) -> List[ActionPotential]:
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not ap_marker_channels:
@@ -181,7 +179,7 @@ class SpikeImporter(MNGImporter):
 		return el_ex_stimuli
 		
 	# return the electrical pulses from the digmark channel
-	def get_electrical_stimuli(self, regular_stimulus_channel, verbose = False):
+	def get_electrical_stimuli(self, regular_stimulus_channel, verbose = False) -> List[ElectricalStimulus]:
 		# get rows where stimulus channel is one (where stimulus fired)
 		stimuli_df = self.__get_rows_where_equals_one(regular_stimulus_channel)
 		
