@@ -17,7 +17,7 @@ class ElectricalExtraStimulus:
 	number_of_pulses = None
 	frequency = None
 	prepulse_distance = None
-	
+		
 	# construct ES class from pandas DF or series containing only the stimulus rows
 	def __init__(self, extra_el_stimuli, regular_stimuli, verbose = False):		
 		# get on and offset
@@ -34,18 +34,19 @@ class ElectricalExtraStimulus:
 		else:
 			self.frequency = self.number_of_pulses / (self.offset - self.onset)
 			
-		# TODO: calculate the distance to the next electrical stimulus
+		# calculate the distance to the next electrical stimulus
 		self.prepulse_distance = ElectricalExtraStimulus.calc_prepulse_dist(self.offset, stimuli_list = regular_stimuli)
 		
 		if verbose == True:
-			print("Created electrical extra stimulus event:")
-			print("From " + str(self.onset) + "s to " + str(self.offset) + "s.")
-			print("#Pulses: " + str(self.number_of_pulses))
-			print("Frequency: " + str(self.frequency) + "Hz")
-			print("Prepulse distance: " + str(self.prepulse_distance) + "s")
-			print("")
-			
-		return
+			self.print_info()
+		
+	def print_info(self):
+		print("Created electrical extra stimulus event:")
+		print("From " + str(self.onset) + "s to " + str(self.offset) + "s.")
+		print("#Pulses: " + str(self.number_of_pulses))
+		print("Frequency: " + str(self.frequency) + "Hz")
+		print("Prepulse distance: " + str(self.prepulse_distance) + "s")
+		print("")
 	
 	# calculate the distance to the onset (!) of the previous electrical stimulus
 	def calc_prepulse_dist(offset, stimuli_list):

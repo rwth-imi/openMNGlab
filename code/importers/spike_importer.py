@@ -125,7 +125,7 @@ class SpikeImporter(MNGImporter):
 				# range does not include the last position, therefore + 1 !
 				# also, pass the electrical stimuli so that the class can get the closest one
 				# print(str(onset) + " to " + str(offset))
-				ap = ActionPotential(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, el_extra_stimuli = el_extra_stimuli, channel_index = channel_index, verbose = verbose)
+				ap = ActionPotential.from_dataframe(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, el_extra_stimuli = el_extra_stimuli, channel_index = channel_index, verbose = verbose)
 				actpots.append(ap)
 				
 				# "jump" to the next AP
@@ -153,13 +153,13 @@ class SpikeImporter(MNGImporter):
 			# start with an empty list
 			stimuli_train = []
 			# but immediately add the first stimulus
-			stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index], df_index = index))
+			stimuli_train.append(ElectricalStimulus.from_dataframe(input_data = ex_stimuli_df.iloc[index], df_index = index, verbose = verbose))
 			
 			# increase the DF(!) index as long as the time distance to the next row is small enough
 			while (abs(ex_stimuli_df.iloc[index + 1][self.time_channel] - ex_stimuli_df.iloc[index][self.time_channel]) < max_gap_time):
 				# the distance is small enough, so jump to next row and add the stimulus to the current train
 				index = index + 1
-				stimuli_train.append(ElectricalStimulus(input_data = ex_stimuli_df.iloc[index], df_index = index))
+				stimuli_train.append(ElectricalStimulus.from_dataframe(input_data = ex_stimuli_df.iloc[index], df_index = index, verbose = verbose))
 				
 				# break out of the loop if we reached the end
 				if (index == len_df - 1):
@@ -186,14 +186,14 @@ class SpikeImporter(MNGImporter):
 		# put all the stimuli into a list object
 		el_stimuli = []
 		for index, row in stimuli_df.iterrows():
-			es = ElectricalStimulus(input_data = row, df_index = index, verbose = verbose)
+			es = ElectricalStimulus.from_dataframe(input_data = row, df_index = index, verbose = verbose)
 			el_stimuli.append(es)
 		
 		print("List of eletrical stimuli created.")
 		return el_stimuli
 		
 	# return list of mechanical stimlui from the force channel
-	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time):
+	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time, verbose = False):
 		# get rows where force channel exceeds threshold
 		force_df = self.__get_rows_where_exceeds_threshold(channel_name = force_channel, threshold = threshold)
 		
@@ -219,7 +219,7 @@ class SpikeImporter(MNGImporter):
 			# range does not include the last position, therefore + 1 !
 			# also, pass the electrical stimuli so that the class can get the closest one
 			# print(str(onset) + " to " + str(offset))
-			ms = MechanicalStimulus(input_df = force_df.iloc[range(onset, offset + 1)])
+			ms = MechanicalStimulus.from_dataframe(input_df = force_df.iloc[range(onset, offset + 1)], verbose = verbose)
 			mech_stimuli.append(ms)
 			
 			# "jump" to the next AP

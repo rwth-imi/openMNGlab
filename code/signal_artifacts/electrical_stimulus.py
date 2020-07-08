@@ -6,22 +6,26 @@ import numpy as np
 	**********************************
 '''
 class ElectricalStimulus:
-	timepoint = None;
-	interval_raw_signal = None;
+	timepoint = None
+	interval_raw_signal = None
 	interval_length = 0
 	df_index = None
 	
-	# construct ES class from pandas DF or series containing only the stimulus rows
-	def __init__(self, input_data, df_index, time_column = "Time", verbose = False):
-		self.timepoint = input_data[time_column]
-		self.df_index = df_index
+	def __init__(self, timepoint, verbose = False):
+		self.timepoint = timepoint
 		
 		if verbose == True:
-			print("Found el. stimulus signal at:")
-			print("Time = " + str(self.timepoint) + "s")
-			print("")
-			
-		return
+			self.print_info()
+	
+	# construct ES class from pandas DF or series containing only the stimulus rows
+	def from_dataframe(input_data, df_index, time_column = "Time", verbose = False):
+		es = ElectricalStimulus(timepoint = input_data[time_column], verbose = verbose)
+		es.df_index = df_index
+		return es
+		
+	def print_info(self):
+		print("Found el. stimulus signal at:")
+		print("Time = " + str(self.timepoint) + "s")
 		
 	def get_timepoint(self):
 		return self.timepoint

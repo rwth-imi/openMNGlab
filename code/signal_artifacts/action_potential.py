@@ -33,17 +33,13 @@ class ActionPotential:
 	belonging_to_extra_stimulus = False
 	prev_el_extra_stimulus = None
 	
-	# construct an AP class from a pandas dataframe containing only the rows for the AP
-	def __init__(self, input_df, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
-		# get on- and offset (in seconds) for this AP
-		self.onset = input_df.iloc[0][time_column]
-		self.offset = input_df.iloc[-1][time_column]
+	def __init__(self, onset, offset, raw_signal, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
+		# set onset and offset of the AP
+		self.onset = onset
+		self.offset = offset
 		
-		# set the channel index, e.g. for different marker shapes in a scatter plot
-		self.channel_index = channel_index
-	
 		# calculated the sum-squares energy of the AP signal
-		self.norm_energy = ActionPotential.calc_normalized_energy(signal_values = input_df[signal_column].values)
+		self.norm_energy = ActionPotential.calc_normalized_energy(signal_values = raw_signal)
 		
 		# calculate the distance to the previous electrical and mechanical stimuli
 		self.dist_to_prev_reg_el_stimulus, self.prev_el_stimulus = ActionPotential.calc_dist_to_prev_reg_el_stimulus(ap_onset = self.onset, stimuli_list = el_stimuli)
@@ -55,19 +51,32 @@ class ActionPotential:
 		self.dist_to_prev_el_extra_stimulus, self.belonging_to_extra_stimulus, self.prev_el_extra_stimulus = ActionPotential.calculate_dist_to_prev_el_extra_stimulus(ap_onset = self.onset, stimuli_list = el_extra_stimuli)
 		
 		if verbose == True:
-			print("Found action potential with:")
-			print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
-			print("normalized energy = " + str(self.norm_energy))
-			print("dist. to prev. el. stimulus = " + str(self.dist_to_prev_reg_el_stimulus) + "s")
-			print("dist. to prev. mech. stimulus = " + str(self.dist_to_prev_mech_stimulus) + "s")
-			if self.belonging_to_mechanical_stimulus == True:
-				print(colored("WARNING: the AP might be caused by this mechanical stimulus!", 'red'))
-			print("dist. to prev. el. extra stimulus = " + str(self.dist_to_prev_el_extra_stimulus) + "s")
-			if self.belonging_to_extra_stimulus == True:
-				print(colored("WARNING: the AP might be caused by this electrical extra stimulus!", 'red'))
-			print("")
-			
-		return
+			self.print_info()
+
+	# construct an AP class from a pandas dataframe containing only the rows for the AP
+	def from_dataframe(input_df, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
+		# get on- and offset (in seconds) for this AP
+		onset = input_df.iloc[0][time_column]
+		offset = input_df.iloc[-1][time_column]
+		
+		ap = ActionPotential(onset = onset, offset = offset, raw_signal = input_df[signal_column].values, el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, el_extra_stimuli = el_extra_stimuli, verbose = verbose)
+		
+		# set the channel index, e.g. for different marker shapes in a scatter plot
+		ap.channel_index = channel_index
+
+		return ap
+		
+	def print_info(self):
+		print("Found action potential with:")
+		print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
+		print("normalized energy = " + str(self.norm_energy))
+		print("dist. to prev. el. stimulus = " + str(self.dist_to_prev_reg_el_stimulus) + "s")
+		print("dist. to prev. mech. stimulus = " + str(self.dist_to_prev_mech_stimulus) + "s")
+		if self.belonging_to_mechanical_stimulus == True:
+			print(colored("WARNING: the AP might be caused by this mechanical stimulus!", 'red'))
+		print("dist. to prev. el. extra stimulus = " + str(self.dist_to_prev_el_extra_stimulus) + "s")
+		if self.belonging_to_extra_stimulus == True:
+			print(colored("WARNING: the AP might be caused by this electrical extra stimulus!", 'red'))
 	
 	# calculate the distance to the onset (!) of the previous mechanical stimulus
 	def calculate_dist_to_prev_mech_stimulus(ap_onset, stimuli_list):
