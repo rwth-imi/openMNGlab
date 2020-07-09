@@ -180,3 +180,9 @@ class ActionPotential:
 		
 	def get_channel_index(self):
 		return self.channel_index
+		
+	def get_onset(self):
+		return self.onset
+	
+	def get_offset(self):
+		return self.offset
