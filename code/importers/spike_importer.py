@@ -30,6 +30,9 @@ class SpikeImporter(MNGImporter):
 		self.signal_channel = signal_channel
 		self.sampling_rate = sampling_rate
 			
+	def get_time_range(self):
+		return min(self.df[:][self.time_channel].values), max(self.df[:][self.time_channel].values)
+			
 	def get_raw_dataframe(self):
 		return self.df
 			

@@ -186,3 +186,6 @@ class ActionPotential:
 	
 	def get_offset(self):
 		return self.offset
+		
+	def get_duration(self):
+		return self.offset - self.onset
