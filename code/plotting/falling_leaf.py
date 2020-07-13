@@ -2,6 +2,7 @@
 import numpy as np
 import plotly.graph_objects as go
 from math import ceil
+from plotting import get_fibre_color
 
 '''
 	**********************************
@@ -27,7 +28,8 @@ class FallingLeafPlot:
 		fig = go.Figure(layout = {
 			"width": self.width, 
 			"height": self.height, 
-			"yaxis": {"autorange": "reversed"}
+			"yaxis": {"autorange": "reversed", "title": "Time (s)"},
+			"xaxis": {"title": "Latency (s)"}
 		})
 		
 		# build a trace for the regular stimuli
@@ -92,6 +94,10 @@ class FallingLeafPlot:
 			
 		# Finally, print markers for the action potentials
 		for actpot in action_potentials:
+			# check if this lies in the post stimulus timeframe that should be displayed
+			if actpot.get_dist_to_prev_reg_el_stimulus() > post_stimulus_timeframe:
+				continue
+		
 			# get previous stimulus and its timestamp
 			prev_stimulus = actpot.get_prev_reg_el_stimulus()
 			prev_timept = prev_stimulus.get_timepoint()
@@ -103,12 +109,14 @@ class FallingLeafPlot:
 					y = [prev_timept] * 2,
 					marker_symbol = ["triangle-nw", "triangle-ne"],
 					marker_size = 7,
-					marker_color = "Red",
+					marker_color = get_fibre_color(actpot.get_implied_fibre_index()),
 					hovertemplate = "%{text}",
-					text = ["Latency: " + str(actpot.get_dist_to_prev_reg_el_stimulus()) + "s", \
-					"Offset: " + str(actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()) + "s"]
+					text = ["Latency: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus()) + "s<br>" + "Fibre Index: " + str(actpot.get_implied_fibre_index()), \
+					"Offset: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()) + "s"]
 				)
 			)
+			
+		
 			
 		fig.show()
 		

@@ -1,6 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+from plotting import get_fibre_color
 
 '''
 	**********************************
@@ -21,7 +22,7 @@ class ClusterPlot2D:
 				mode = "markers",
 				x = clustered_data_df["Latency"],
 				y = clustered_data_df["Energy"],
-				marker_color = clustered_data_df["Cluster_Index"],
+				marker_color = [get_fibre_color(idx) for idx in clustered_data_df["Cluster_Index"]],
 				marker_symbol = clustered_data_df["Channel_Index"],
 				hovertemplate = "%{text}",
 				text = ClusterPlot2D.make_hover_labels_from_df(df = clustered_data_df)
