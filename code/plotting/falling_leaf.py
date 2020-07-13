@@ -40,7 +40,9 @@ class FallingLeafPlot:
 				y = [stim.get_timepoint() for stim in regular_stimuli],
 				marker_color = "Black",
 				marker_symbol = "star",
-				hovertemplate = "Electrical Stimulus:<br>at %{y}s"
+				hovertemplate = "%{text}",
+				text = ["time = " + "{:1.4f}".format(stim.get_timepoint()) + "s" for stim in regular_stimuli],
+				name = "Electrical Stimuli"
 			)
 		)
 		
@@ -74,18 +76,23 @@ class FallingLeafPlot:
 				# scale the signal accordingly
 				signal_scaling_factor = space_margin / max_signal_value
 				raw_signal = [signal_scaling_factor * val + stim.get_timepoint() for val in raw_signal]
+				time_space = np.linspace(0, t_max, len(raw_signal))
 				
 				# plot the signal using linspace for the time
 				fig.add_trace(
 					go.Scatter(
 						mode = "lines",
-						x = np.linspace(0, t_max, len(raw_signal)),
+						x = time_space,
 						y = raw_signal,
 						line = {
 							"color": 'firebrick', 
 							"width": .5
 						},
-						hovertemplate = "Raw signal<br>%{x}s<br>%{y}mV"
+						hovertemplate = "%{text}",
+						text = ["time = " + "{:1.4f}".format(t) + "s<br>amp = " + "{:1.2f}".format(s) + "mV" for t, s in zip(time_space, raw_signal)],
+						legendgroup = "rawsignal",
+						name = "Raw Signal",
+						showlegend = True if index == 0 else False
 					)
 				)
 		else:
@@ -112,7 +119,8 @@ class FallingLeafPlot:
 					marker_color = get_fibre_color(actpot.get_implied_fibre_index()),
 					hovertemplate = "%{text}",
 					text = ["Latency: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus()) + "s<br>" + "Fibre Index: " + str(actpot.get_implied_fibre_index()), \
-					"Offset: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()) + "s"]
+					"Offset: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()) + "s"],
+					showlegend = False
 				)
 			)
 			
