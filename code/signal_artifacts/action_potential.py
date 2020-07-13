@@ -11,13 +11,18 @@ class ActionPotential:
 	onset = None
 	offset = None
 	
+	# normalized signal energy
+	norm_energy = None
+	
+	# the result from clustering/fibre tracking
+	implied_fibre_index = None
+	
 	# the channel index to distinguish e.g. between different spike templates
 	channel_index = None
 	
+	# info about the previous electrical stimulus
 	dist_to_prev_reg_el_stimulus = None
 	prev_el_stimulus = None
-	
-	norm_energy = None
 	
 	# AP might be caused by mechanical stimulation
 	# if it lies within on- and offset of the mechanical stimulus
@@ -189,3 +194,6 @@ class ActionPotential:
 		
 	def get_duration(self):
 		return self.offset - self.onset
+		
+	def get_implied_fibre_index(self):
+		return self.implied_fibre_index
