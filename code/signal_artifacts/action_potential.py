@@ -11,6 +11,9 @@ class ActionPotential:
 	onset = None
 	offset = None
 	
+	# save the raw signal values
+	raw_signal = None
+	
 	# normalized signal energy
 	norm_energy = None
 	
@@ -39,9 +42,11 @@ class ActionPotential:
 	prev_el_extra_stimulus = None
 	
 	def __init__(self, onset, offset, raw_signal, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False):
-		# set onset and offset of the AP
+		# set onset, offset and raw_signal of the AP
 		self.onset = onset
 		self.offset = offset
+		
+		self.raw_signal = raw_signal
 		
 		# calculated the sum-squares energy of the AP signal
 		self.norm_energy = ActionPotential.calc_normalized_energy(signal_values = raw_signal)

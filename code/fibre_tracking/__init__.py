@@ -1,1 +1,2 @@
 from fibre_tracking.dbscan_clustering import DBSCANClustering
+from fibre_tracking.ap_template import ActionPotentialTemplate
