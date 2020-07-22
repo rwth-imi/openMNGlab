@@ -1,0 +1,1 @@
+from metrics.normalized_cross_correlation import normalized_cross_correlation
