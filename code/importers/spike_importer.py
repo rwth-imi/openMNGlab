@@ -144,7 +144,7 @@ class SpikeImporter(MNGImporter):
 	# if their distance is less than max_gap_time
 	# from the thus created train of stimuli, we can then extract stuff such as
 	# number of stimuli, frequency and distance to next regular stimulus
-	def get_extra_stimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False):
+	def get_extra_stimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False) -> List[ElectricalExtraStimulus]:
 		# get rows where stimulus channel is one (where stimulus fired)
 		ex_stimuli_df = self.__get_rows_where_equals_one(extra_stimulus_channel)
 		len_df = len(ex_stimuli_df.index)
@@ -196,7 +196,7 @@ class SpikeImporter(MNGImporter):
 		return el_stimuli
 		
 	# return list of mechanical stimlui from the force channel
-	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time, verbose = False):
+	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time, verbose = False) -> List[MechanicalStimulus]:
 		# get rows where force channel exceeds threshold
 		force_df = self.__get_rows_where_exceeds_threshold(channel_name = force_channel, threshold = threshold)
 		
