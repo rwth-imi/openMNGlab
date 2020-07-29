@@ -18,11 +18,10 @@ class FallingLeafPlot:
 	def plot(self, regular_stimuli, action_potentials, t_start, num_intervals, post_stimulus_timeframe = float("infinity"), plot_raw_signal = True):
 		# first, select the intervals according to start time and number of intervals
 		regular_stimuli = [stim for stim in regular_stimuli if stim.get_timepoint() > t_start]
-		regular_stimuli = regular_stimuli[0:num_intervals]
+		regular_stimuli = regular_stimuli[0 : num_intervals]
 				
 		# filter the action potentials belonging to these stimuli
-		action_potentials = [ap for ap in action_potentials if ap.get_prev_reg_el_stimulus() in regular_stimuli]
-				
+		action_potentials = [ap for ap in action_potentials if ap.prev_stimuli["regular"] in regular_stimuli]
 				
 		# set up the figure object
 		fig = go.Figure(layout = {
@@ -102,24 +101,24 @@ class FallingLeafPlot:
 		# Finally, print markers for the action potentials
 		for actpot in action_potentials:
 			# check if this lies in the post stimulus timeframe that should be displayed
-			if actpot.get_dist_to_prev_reg_el_stimulus() > post_stimulus_timeframe:
+			if actpot.features["latency"] > post_stimulus_timeframe:
 				continue
 		
 			# get previous stimulus and its timestamp
-			prev_stimulus = actpot.get_prev_reg_el_stimulus()
+			prev_stimulus = actpot.prev_stimuli["regular"]
 			prev_timept = prev_stimulus.get_timepoint()
 			
 			fig.add_trace(
 				go.Scatter(
 					mode = "markers",
-					x = [actpot.get_dist_to_prev_reg_el_stimulus(), actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()],
+					x = [actpot.features["latency"], actpot.features["latency"] + actpot.duration],
 					y = [prev_timept] * 2,
 					marker_symbol = ["triangle-nw", "triangle-ne"],
 					marker_size = 7,
-					marker_color = get_fibre_color(actpot.get_implied_fibre_index()),
+					marker_color = get_fibre_color(actpot.implied_fibre_index),
 					hovertemplate = "%{text}",
-					text = ["Latency: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus()) + "s<br>" + "Fibre Index: " + str(actpot.get_implied_fibre_index()), \
-					"Offset: " + "{:1.4f}".format(actpot.get_dist_to_prev_reg_el_stimulus() + actpot.get_duration()) + "s"],
+					text = ["Latency: " + "{:1.4f}".format(actpot.features["latency"]) + "s<br>" + "Fibre Index: " + str(actpot.implied_fibre_index), \
+					"Offset: " + "{:1.4f}".format(actpot.features["latency"] + actpot.duration) + "s"],
 					showlegend = False
 				)
 			)

@@ -128,7 +128,7 @@ class SpikeImporter(MNGImporter):
 				# range does not include the last position, therefore + 1 !
 				# also, pass the electrical stimuli so that the class can get the closest one
 				# print(str(onset) + " to " + str(offset))
-				ap = ActionPotential.from_dataframe(input_df = actpots_df.iloc[range(onset, offset + 1)], el_stimuli = el_stimuli, mech_stimuli = mech_stimuli, el_extra_stimuli = el_extra_stimuli, channel_index = channel_index, verbose = verbose)
+				ap = ActionPotential.from_dataframe(input_df = actpots_df.iloc[range(onset, offset + 1)], channel_index = channel_index, verbose = verbose)
 				actpots.append(ap)
 				
 				# "jump" to the next AP
