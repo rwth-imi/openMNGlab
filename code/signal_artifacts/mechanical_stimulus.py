@@ -31,12 +31,3 @@ class MechanicalStimulus:
 		print("Found mechanical stimulus:")
 		print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
 		print("amplitude = " + str(self.amplitude) + "mN")
-	
-	def get_onset(self):
-		return self.onset
-		
-	def get_offset(self):
-		return self.offset
-		
-	def get_amplitude(self):
-		return self.amplitude

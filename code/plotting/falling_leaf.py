@@ -17,7 +17,7 @@ class FallingLeafPlot:
 	
 	def plot(self, regular_stimuli, action_potentials, t_start, num_intervals, post_stimulus_timeframe = float("infinity"), plot_raw_signal = True):
 		# first, select the intervals according to start time and number of intervals
-		regular_stimuli = [stim for stim in regular_stimuli if stim.get_timepoint() > t_start]
+		regular_stimuli = [stim for stim in regular_stimuli if stim.timepoint > t_start]
 		regular_stimuli = regular_stimuli[0 : num_intervals]
 				
 		# filter the action potentials belonging to these stimuli
@@ -36,36 +36,36 @@ class FallingLeafPlot:
 			go.Scatter(
 				mode = "markers",
 				x = [0] * len(regular_stimuli),
-				y = [stim.get_timepoint() for stim in regular_stimuli],
+				y = [stim.timepoint for stim in regular_stimuli],
 				marker_color = "Black",
 				marker_symbol = "star",
 				hovertemplate = "%{text}",
-				text = ["time = " + "{:1.4f}".format(stim.get_timepoint()) + "s" for stim in regular_stimuli],
+				text = ["time = " + "{:1.4f}".format(stim.timepoint) + "s" for stim in regular_stimuli],
 				name = "Electrical Stimuli"
 			)
 		)
 		
 		if plot_raw_signal == True:
 			# get the max signal value that must be printed
-			max_signal_value = max([max(stim.get_interval_raw_signal()) for stim in regular_stimuli])
+			max_signal_value = max([max(stim.interval_raw_signal) for stim in regular_stimuli])
 		
 			# print the raw signal for each of the intervals
 			for index, stim in enumerate(regular_stimuli):
-				raw_signal = stim.get_interval_raw_signal()
+				raw_signal = stim.interval_raw_signal
 				
 				# cut the raw signal snippets according to the desired timeframe after the stimulus
-				t_max = min(stim.get_interval_length(), post_stimulus_timeframe)
-				last_sample = ceil(len(raw_signal) * (t_max / stim.get_interval_length()))
+				t_max = min(stim.interval_length, post_stimulus_timeframe)
+				last_sample = ceil(len(raw_signal) * (t_max / stim.interval_length))
 				raw_signal = raw_signal[range(0, last_sample)]
 				
 				# check how much space we have for scaling the raw data
 				if index > 0:
-					timediff_prev = stim.get_timepoint() - regular_stimuli[index - 1].get_timepoint()
+					timediff_prev = stim.timepoint - regular_stimuli[index - 1].timepoint
 				else:
 					timediff_prev = 2.0
 					
 				if index < len(regular_stimuli) - 1:
-					timediff_next = regular_stimuli[index + 1].get_timepoint() - stim.get_timepoint()
+					timediff_next = regular_stimuli[index + 1].timepoint - stim.timepoint
 				else:
 					timediff_next = 2.0
 					
@@ -74,7 +74,7 @@ class FallingLeafPlot:
 				
 				# scale the signal accordingly
 				signal_scaling_factor = space_margin / max_signal_value
-				raw_signal = [signal_scaling_factor * val + stim.get_timepoint() for val in raw_signal]
+				raw_signal = [signal_scaling_factor * val + stim.timepoint for val in raw_signal]
 				time_space = np.linspace(0, t_max, len(raw_signal))
 				
 				# plot the signal using linspace for the time
@@ -106,7 +106,7 @@ class FallingLeafPlot:
 		
 			# get previous stimulus and its timestamp
 			prev_stimulus = actpot.prev_stimuli["regular"]
-			prev_timept = prev_stimulus.get_timepoint()
+			prev_timept = prev_stimulus.timepoint
 			
 			fig.add_trace(
 				go.Scatter(
@@ -135,33 +135,33 @@ class FallingLeafPlot:
 	
 		# plot the regular stimuli for reference
 		for index, regstim in enumerate(regular_stimuli):
-			timept = regstim.get_timepoint()
+			timept = regstim.timepoint
 			
 			# check, if this is in the timerange that we want
 			if timept > time_start and timept < time_stop:
-				plt.scatter(x = 0, y = regstim.get_timepoint(), marker = "*", color = "k")
+				plt.scatter(x = 0, y = regstim.timepoint, marker = "*", color = "k")
 			
 				# plot horizontal helper lines
 				if plot_hlines == True:
-					plt.gca().axhline(y = regstim.get_timepoint(), color = "g", linewidth = ".5")
+					plt.gca().axhline(y = regstim.timepoint, color = "g", linewidth = ".5")
 					
 				# plot raw signal
 				if plot_raw_signal:
-					raw_signal = regstim.get_interval_raw_signal()
+					raw_signal = regstim.raw_signal
 					
 					# check, how far the signal should be drawn
-					t_max = min(regstim.get_interval_length(), post_stimulus_timeframe)
-					last_sample = ceil(len(raw_signal) * (t_max / regstim.get_interval_length()))
+					t_max = min(regstim.interval_length, post_stimulus_timeframe)
+					last_sample = ceil(len(raw_signal) * (t_max / regstim.interval_length))
 					raw_signal = raw_signal[range(0, last_sample)]
 					
 					# check how much space we have for scaling the raw data
 					if index > 0:
-						timediff_prev = regstim.get_timepoint() - regular_stimuli[index - 1].get_timepoint()
+						timediff_prev = regstim.timepoint - regular_stimuli[index - 1].timepoint
 					else:
 						timediff_prev = 2.0
 						
 					if index < len(regular_stimuli) - 1:
-						timediff_next = regular_stimuli[index + 1].get_timepoint() - regstim.get_timepoint()
+						timediff_next = regular_stimuli[index + 1].timepoint - regstim.timepoint
 					else:
 						timediff_prev = 2.0
 						
@@ -170,7 +170,7 @@ class FallingLeafPlot:
 					
 					# scale the signal accordingly
 					signal_scaling_factor = space_margin / max_signal_value
-					raw_signal = [signal_scaling_factor * val + regstim.get_timepoint() for val in raw_signal]
+					raw_signal = [signal_scaling_factor * val + regstim.timepoint for val in raw_signal]
 					
 					# create a linspace to have an x-axis for the values
 					signal_time = np.linspace(0, t_max, len(raw_signal))
@@ -180,10 +180,10 @@ class FallingLeafPlot:
 		for actpot in action_potentials:
 			# get previous stimulus and its timestamp
 			prev_stimulus = actpot.get_prev_reg_el_stimulus()
-			prev_timept = prev_stimulus.get_timepoint()
+			prev_timept = prev_stimulus.timepoint
 			
 			if prev_timept > time_start and prev_timept < time_stop:
-				plt.scatter(x = actpot.get_dist_to_prev_reg_el_stimulus(), y = prev_stimulus.get_timepoint(), marker = "x", color = "r")
+				plt.scatter(x = actpot.get_dist_to_prev_reg_el_stimulus(), y = prev_stimulus.timepoint, marker = "x", color = "r")
 	
 		plt.xlabel("Response Latency (s)")
 		plt.ylabel("Time (s)")

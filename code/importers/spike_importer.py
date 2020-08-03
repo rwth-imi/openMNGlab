@@ -51,30 +51,30 @@ class SpikeImporter(MNGImporter):
 			stimulus = next(stimulus_iter)
 			
 			# find the first interval that lies within the desired range
-			while stimulus.get_timepoint() < start_time:
+			while stimulus.timepoint < start_time:
 				stimulus = next(stimulus_iter)
 				
 			if verbose == True:
-				print("Starting at " + str(stimulus.get_timepoint()) + "s")
+				print("Starting at " + str(stimulus.timepoint) + "s")
 			
 			while True:				
 				# get the next stimulus to search for the end
 				next_stimulus = next(stimulus_iter)
 								
 				# retrieve this interval from the dataframe
-				raw_interval = self.df.iloc[range(stimulus.get_dataframe_index(), next_stimulus.get_dataframe_index())][self.signal_channel].values
-				stimulus.set_interval_raw_signal(raw_interval)
-				stimulus.set_interval_length(next_stimulus.get_timepoint() - stimulus.get_timepoint())
+				raw_interval = self.df.iloc[range(stimulus.df_index, next_stimulus.df_index)][self.signal_channel].values
+				stimulus.interval_raw_signal = raw_interval
+				stimulus.interval_length = next_stimulus.timepoint - stimulus.timepoint
 				raw_intervals.append(raw_interval)
 				
 				if verbose == True:
-					print("Cropped interval from " + str(stimulus.get_timepoint()) + "s to " + str(next_stimulus.get_timepoint()) + "s")
+					print("Cropped interval from " + str(stimulus.timepoint()) + "s to " + str(next_stimulus.timepoint()) + "s")
 				
 				# this second stimulus is also the beginning of the next interval
 				stimulus = next_stimulus
 				
 				# STOP if we exceeded the desired time range
-				if next_stimulus.get_timepoint() > stop_time:
+				if next_stimulus.timepoint > stop_time:
 					break
 			
 		# this exception will be thrown if we reached the last stimulus
@@ -82,8 +82,8 @@ class SpikeImporter(MNGImporter):
 			index_stop = len(self.df.index)
 			
 			# retrieve this interval from the dataframe
-			raw_interval = self.df.iloc[range(stimulus.get_dataframe_index(), index_stop)][self.signal_channel].values
-			stimulus.set_interval_raw_signal(raw_interval)
+			raw_interval = self.df.iloc[range(stimulus.df_index, index_stop)][self.signal_channel].values
+			stimulus.raw_signal = raw_interval
 			raw_intervals.append(raw_interval)
 			
 		print("Done with cropping the intervals")

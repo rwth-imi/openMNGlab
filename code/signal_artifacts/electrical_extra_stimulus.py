@@ -21,8 +21,8 @@ class ElectricalExtraStimulus:
 	# construct ES class from pandas DF or series containing only the stimulus rows
 	def __init__(self, extra_el_stimuli, regular_stimuli, verbose = False):		
 		# get on and offset
-		self.onset = extra_el_stimuli[0].get_timepoint()
-		self.offset = extra_el_stimuli[-1].get_timepoint()
+		self.onset = extra_el_stimuli[0].timepoint
+		self.offset = extra_el_stimuli[-1].timepoint
 		
 		# get number of pulses
 		self.number_of_pulses = len(extra_el_stimuli)
@@ -56,7 +56,7 @@ class ElectricalExtraStimulus:
 			return -1
 			
 		next_stimulus = ElectricalExtraStimulus.get_next_reg_stimulus(offset, stimuli_list)
-		return (next_stimulus.get_timepoint() - offset)
+		return (next_stimulus.timepoint - offset)
 		
 		
 	# go through the list of regular electrical pulses
@@ -66,30 +66,10 @@ class ElectricalExtraStimulus:
 		index = 0
 		len_list = len(stimuli_list)
 		# advance through the list until the timepoint is before a regular stimulus
-		while (offset > stimuli_list[index].get_timepoint()):
+		while (offset > stimuli_list[index].timepoint):
 			index = index + 1
 			# we don't want to exceed the list length
 			if (index == len_list - 1):
 				break
 			
 		return stimuli_list[index]
-	
-	'''
-		****************************
-		From here, it's only getters
-		****************************
-	'''
-	def get_onset(self):
-		return self.onset
-	
-	def get_offset(self):
-		return self.offset
-	
-	def get_num_pulses(self):
-		return self.number_of_pulses
-	
-	def get_frequency(self):
-		return self.frequency
-
-	def get_prepulse_dist(self):
-		return self.prepulse_distance
