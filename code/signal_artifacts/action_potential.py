@@ -18,11 +18,6 @@ class ActionPotential:
 	# features
 	features = None
 	
-	norm_energy = None
-	dist_to_prev_reg_el_stimulus = None
-	dist_to_prev_mech_stimulus = None
-	dist_to_prev_el_extra_stimulus = None
-	
 	# the result from clustering/fibre tracking
 	implied_fibre_index = None
 	
@@ -31,10 +26,6 @@ class ActionPotential:
 	
 	# info about the electrical stimuli
 	prev_stimuli = None
-	
-	prev_el_stimulus = None
-	prev_mech_stimulus = None
-	prev_el_extra_stimulus = None
 	
 	# information about whether the AP was triggered by any stimulation event
 	triggered_by = None
