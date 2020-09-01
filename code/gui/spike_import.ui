@@ -1,0 +1,244 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.0">
+  <object class="tk.Toplevel" id="toplevel_window">
+    <property name="height">400</property>
+    <property name="resizable">none</property>
+    <property name="width">600</property>
+    <child>
+      <object class="ttk.Frame" id="frame_3">
+        <property name="height">425</property>
+        <property name="width">400</property>
+        <layout manager="pack">
+          <property name="propagate">True</property>
+          <property name="side">top</property>
+        </layout>
+        <child>
+          <object class="ttk.Labelframe" id="labelframe_2">
+            <property name="height">200</property>
+            <property name="text" translatable="yes">Signal &amp; Time Channels</property>
+            <property name="width">200</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="height">90</property>
+              <property name="width">380</property>
+              <property name="x">10</property>
+              <property name="y">40</property>
+            </layout>
+            <child>
+              <object class="ttk.Combobox" id="sel_signal">
+                <property name="state">disabled</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">125</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Combobox" id="sel_time">
+                <property name="state">disabled</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">125</property>
+                  <property name="y">35</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_3">
+                <property name="text" translatable="yes">Signal Channel:</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_4">
+                <property name="text" translatable="yes">Time Channel:</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">35</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Labelframe" id="labelframe_3">
+            <property name="height">200</property>
+            <property name="text" translatable="yes">Stimulation Channels</property>
+            <property name="width">200</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="height">115</property>
+              <property name="width">380</property>
+              <property name="x">10</property>
+              <property name="y">140</property>
+            </layout>
+            <child>
+              <object class="ttk.Combobox" id="sel_reg_el">
+                <property name="state">disabled</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">125</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Combobox" id="sel_mech">
+                <property name="state">disabled</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">125</property>
+                  <property name="y">35</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_3_5">
+                <property name="text" translatable="yes">Regular Electrical:</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_4_6">
+                <property name="text" translatable="yes">Mechanical:</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">35</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Combobox" id="sel_ex_el">
+                <property name="state">disabled</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">125</property>
+                  <property name="y">60</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_4_6_7">
+                <property name="text" translatable="yes">Extra Electical:</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">60</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="tk.Checkbutton" id="chk_mech">
+                <property name="state">disabled</property>
+                <property name="takefocus">false</property>
+                <property name="text" translatable="yes">load</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">275</property>
+                  <property name="y">35</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="tk.Checkbutton" id="chk_ex_el">
+                <property name="state">disabled</property>
+                <property name="text" translatable="yes">load</property>
+                <property name="variable">boolean:load_ex_el</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">275</property>
+                  <property name="y">60</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Labelframe" id="labelframe_3_4">
+            <property name="height">200</property>
+            <property name="text" translatable="yes">Action Potential Channels</property>
+            <property name="width">200</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="height">115</property>
+              <property name="width">380</property>
+              <property name="x">10</property>
+              <property name="y">265</property>
+            </layout>
+            <child>
+              <object class="tk.Listbox" id="lst_ap">
+                <property name="activestyle">dotbox</property>
+                <property name="selectmode">multiple</property>
+                <property name="state">disabled</property>
+                <property name="takefocus">false</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="height">75</property>
+                  <property name="width">300</property>
+                  <property name="x">10</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Button" id="btn_snoop">
+            <property name="text" translatable="yes">Snoop File</property>
+            <layout manager="place">
+              <property name="anchor">ne</property>
+              <property name="relx">0.985</property>
+              <property name="x">0</property>
+              <property name="y">10</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="pygubu.builder.widgets.pathchooserinput" id="file_spike">
+            <property name="initialdir">.</property>
+            <property name="mustexist">true</property>
+            <property name="title" translatable="yes">Select Spike recording as csv file</property>
+            <property name="type">file</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="width">300</property>
+              <property name="x">10</property>
+              <property name="y">10</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Button" id="btn_abort">
+            <property name="text" translatable="yes">Abort</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="x">10</property>
+              <property name="y">390</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Button" id="btn_loadfile">
+            <property name="text" translatable="yes">Load file!</property>
+            <layout manager="place">
+              <property name="anchor">nw</property>
+              <property name="x">95</property>
+              <property name="y">390</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
