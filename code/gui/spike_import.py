@@ -21,6 +21,10 @@ class SpikeImportGUI:
 	stimulus_channels = dict()
 	ap_channels = []
 
+	# some parameters given by the user
+	force_threshold = None
+	max_ap_gap = None
+
 	# some pygubu/tkinter classes
 	builder = None
 	
@@ -31,13 +35,17 @@ class SpikeImportGUI:
 	load_mech = None
 	load_ex_el = None
 	
-	# this function enables/disables the combobox "sel" depending on the value of "enable"
+	# this function enables/disables the widget "obj" depending on the value of "enable"
 	# we use this to enable the boxes iff the corresponding checkbox is checked
-	def switch_sel(sel, enable):
+	def enable_obj(obj, enable):
 		if enable == True:
-			sel['state'] = "normal"
+			obj['state'] = "normal"
 		else:
-			sel['state'] = "disabled"
+			obj['state'] = "disabled"
+			
+	def enable_objs(objs, enable):
+		for obj in objs:
+			SpikeImportGUI.enable_obj(obj, enable)
 
 	# snoops the file defined by filepath and returns the names of the columns, i.e. the channel names
 	def get_channel_names(filepath):
@@ -73,6 +81,10 @@ class SpikeImportGUI:
 		lst_ap = self.builder.get_object('lst_ap')
 		self.ap_channels = [self.channels[idx] for idx in lst_ap.curselection()]
 		
+		if (self.load_mech.get() == True):
+			self.force_threshold = float(self.builder.get_object("txt_forcethresh").get())
+		self.max_ap_gap = float(self.builder.get_object("txt_maxgap").get())
+		
 		self.main_window.destroy()
 	
 	'''
@@ -98,20 +110,23 @@ class SpikeImportGUI:
 		# initialize checkboxes
 		chk_mech = self.builder.get_object('chk_mech')
 		chk_mech['state'] = "normal"
-		
 		chk_mech['variable'] = self.load_mech
-		chk_mech['command'] = lambda: SpikeImportGUI.switch_sel(self.builder.get_object('sel_mech'), self.load_mech.get())
+		chk_mech['command'] = lambda: SpikeImportGUI.enable_objs([self.builder.get_object('sel_mech'), self.builder.get_object('txt_forcethresh')], self.load_mech.get())
 		
 		chk_ex_el = self.builder.get_object('chk_ex_el')
 		chk_ex_el['state'] = "normal"
 		chk_ex_el['variable'] = self.load_ex_el
-		chk_ex_el['command'] = lambda: SpikeImportGUI.switch_sel(self.builder.get_object('sel_ex_el'), self.load_ex_el.get())
+		chk_ex_el['command'] = lambda: SpikeImportGUI.enable_obj(self.builder.get_object('sel_ex_el'), self.load_ex_el.get())
 		
 		# initialize the AP channel list box
 		lst_ap = self.builder.get_object('lst_ap')
 		lst_ap['state'] = "normal"
 		for ch in self.channels:
 			lst_ap.insert(tk.END, ch)
+			
+		txt_maxgap = self.builder.get_object('txt_maxgap')
+		txt_maxgap['state'] = "normal"
+		txt_maxgap.insert(0, "0.005")
 	
 	# construct the class
 	def __init__(self):

@@ -6,7 +6,7 @@
     <property name="width">600</property>
     <child>
       <object class="ttk.Frame" id="frame_3">
-        <property name="height">425</property>
+        <property name="height">450</property>
         <property name="width">400</property>
         <layout manager="pack">
           <property name="propagate">True</property>
@@ -73,7 +73,7 @@
             <property name="width">200</property>
             <layout manager="place">
               <property name="anchor">nw</property>
-              <property name="height">115</property>
+              <property name="height">140</property>
               <property name="width">380</property>
               <property name="x">10</property>
               <property name="y">140</property>
@@ -124,17 +124,17 @@
                 <layout manager="place">
                   <property name="anchor">nw</property>
                   <property name="x">125</property>
-                  <property name="y">60</property>
+                  <property name="y">90</property>
                 </layout>
               </object>
             </child>
             <child>
               <object class="ttk.Label" id="label_4_6_7">
-                <property name="text" translatable="yes">Extra Electical:</property>
+                <property name="text" translatable="yes">Extra Electrical:</property>
                 <layout manager="place">
                   <property name="anchor">nw</property>
                   <property name="x">10</property>
-                  <property name="y">60</property>
+                  <property name="y">90</property>
                 </layout>
               </object>
             </child>
@@ -158,7 +158,29 @@
                 <layout manager="place">
                   <property name="anchor">nw</property>
                   <property name="x">275</property>
-                  <property name="y">60</property>
+                  <property name="y">90</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_4_6_26">
+                <property name="text" translatable="yes">Force threshold (mN):</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">10</property>
+                  <property name="y">62</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Entry" id="txt_forcethresh">
+                <property name="state">disabled</property>
+                <property name="text" translatable="yes">0.5</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="width">60</property>
+                  <property name="x">140</property>
+                  <property name="y">62</property>
                 </layout>
               </object>
             </child>
@@ -174,7 +196,7 @@
               <property name="height">115</property>
               <property name="width">380</property>
               <property name="x">10</property>
-              <property name="y">265</property>
+              <property name="y">290</property>
             </layout>
             <child>
               <object class="tk.Listbox" id="lst_ap">
@@ -185,8 +207,30 @@
                 <layout manager="place">
                   <property name="anchor">nw</property>
                   <property name="height">75</property>
-                  <property name="width">300</property>
+                  <property name="width">170</property>
                   <property name="x">10</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Label" id="label_27">
+                <property name="text" translatable="yes">Max. gap time (s):</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="x">190</property>
+                  <property name="y">10</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="ttk.Entry" id="txt_maxgap">
+                <property name="state">disabled</property>
+                <property name="text" translatable="yes">0.005</property>
+                <layout manager="place">
+                  <property name="anchor">nw</property>
+                  <property name="width">70</property>
+                  <property name="x">295</property>
                   <property name="y">10</property>
                 </layout>
               </object>
@@ -224,7 +268,7 @@
             <layout manager="place">
               <property name="anchor">nw</property>
               <property name="x">10</property>
-              <property name="y">390</property>
+              <property name="y">415</property>
             </layout>
           </object>
         </child>
@@ -234,7 +278,7 @@
             <layout manager="place">
               <property name="anchor">nw</property>
               <property name="x">95</property>
-              <property name="y">390</property>
+              <property name="y">415</property>
             </layout>
           </object>
         </child>
