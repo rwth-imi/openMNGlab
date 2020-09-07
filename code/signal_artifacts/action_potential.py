@@ -1,10 +1,8 @@
 import numpy as np
 from termcolor import colored
 
-## @package signal_artifacts
-# This module contains the different signal_artifacts and corresponding events that might occur during an recordings.mng_recording.MNGRecording.
-
 ## A single action potential (AP) in a recording.
+# \author Fabian Schlebusch, fabian.schlebusch@rwth-aachen.de
 class ActionPotential:
 	## The onset of this AP (in seconds).
 	onset = None
@@ -30,9 +28,9 @@ class ActionPotential:
 	channel_index = None
 	
 	## The last stimulus of each kind (i.e., regular electrical, mechanical, ...) is tracked in this dictionary.
-	# We agreed on some nomenclature to store these stimuli in the dict without causing too many conflicts:
-	# "regular": the previous regular electrical stimulus
-	# "mechanical": the previous mechanical stimulus
+	# We agreed on some nomenclature to store these stimuli in the dict without causing too many conflicts: \n
+	# "regular": the previous regular electrical stimulus \n
+	# "mechanical": the previous mechanical stimulus \n
 	# "extra_electrical": the previous electrical extra stimulus
 	prev_stimuli = None
 	
@@ -66,6 +64,7 @@ class ActionPotential:
 	# @param time_column Name of the column which contains the time stamps
 	# @param signal_column Name of the column which contains the signal values
 	# @param channel_index Index of the channel from which the AP was extracted
+	# @return AP object created from the dataframe
 	def from_dataframe(input_df, time_column = "Time", signal_column = "1 Signal", channel_index = 0, verbose = False):
 		# get on- and offset (in seconds) for this AP
 		onset = input_df.iloc[0][time_column]
