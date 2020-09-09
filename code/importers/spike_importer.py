@@ -9,14 +9,22 @@ from signal_artifacts import ElectricalStimulus
 from signal_artifacts import MechanicalStimulus
 from signal_artifacts import ElectricalExtraStimulus
 
+## This class imports Spike2 experiments after they have been exported as CSV files
 class SpikeImporter(MNGImporter):
-	# the dataframe that we work with
+	## The pandas dataframe as read from the CSV file
 	df = None
-	# save the channel names here to ease usage of this class from the outside
+	## Column name of the time column in the DF
 	time_channel = None
+	## Name of the signal column
 	signal_channel = None
 	
-	# constructor loads a spike file from the given file path
+	## Constructs an importer object by reading the CSV and setting basic parameters for further processing
+	# @param filepath Path to the csv file
+	# @param time_channel Name of the time column
+	# @param signal_channel Name of the signal column
+	# @param sampling_rate Sampling rate of the MNG experiment
+	# @param custom_delimiter Delimiter by which the columns in the CSV are separated
+	# @param remove_apostrophes Removes the apostrophes which are somehow added by Spike2 but cause confusion in python
 	def __init__(self, filepath, time_channel, signal_channel, sampling_rate = 20000, custom_delimiter = ",", remove_apostrophes = True):
 		# set up pandas to expect NaN values in the data and load the file 
 		self.df = pd.read_csv(filepath_or_buffer = filepath, delimiter = custom_delimiter, na_values = "NaN", na_filter = True)
@@ -30,17 +38,23 @@ class SpikeImporter(MNGImporter):
 		self.signal_channel = signal_channel
 		self.sampling_rate = sampling_rate
 			
+	## Get the minimum and maximum timestamps from this recording
 	def get_time_range(self):
 		return min(self.df[:][self.time_channel].values), max(self.df[:][self.time_channel].values)
 			
+	## Get the whole pandas dataframe for the recording
 	def get_raw_dataframe(self):
 		return self.df
 			
+	## Get only the raw signal from the recording
 	def get_raw_signal(self) -> List[float]:
 		return self.df[:][self.signal_channel].values
 		
-	# get the raw signal, chopped by the regular stimuli
-	# it is preferable to provide a time range, else this will take forever...
+	## Get the raw signal, chopped by the regular stimuli.
+	# It is preferable to provide a time range, else this will take forever...
+	# @param el_stimuli List of electrical stimuli in the recording
+	# @param start_time Minimum timestamp of the intervals
+	# @param stop_time Maximum timestamp for the intervals
 	def get_raw_signal_split_by_stimuli(self, el_stimuli, verbose = False, start_time = 0, stop_time = float("infinity")) -> List[List[float]]:
 		raw_signal = self.df[:][self.signal_channel]
 		raw_intervals = []
@@ -90,10 +104,12 @@ class SpikeImporter(MNGImporter):
 			
 		return raw_intervals
 			
-	# return a list of action potentials for the gap times
-	# calculates the distance to the previous electrical stimuli
-	# calculates the distance to the previous force stimulus
-	def get_action_potentials(self, ap_marker_channels, max_gap_time = 0.005, el_stimuli = [], mech_stimuli = [], el_extra_stimuli = [], verbose = False) -> List[ActionPotential]:
+	## Gets a list of action potentials provided in the selected marker channels.
+	# The function looks at the channels and selects sections from the dataframe where the entries in the channels are not NaN.
+	# @param ap_marker_channels List of channels where wavemarks of APs are contained
+	# @param max_gap_time If the gap between two consecutive not-NaN values in a channel is larger than this time, they are considered as two separate APs
+	# @param el_stimuli List of electrical stimuli
+	def get_action_potentials(self, ap_marker_channels, max_gap_time = 0.005, verbose = False) -> List[ActionPotential]:
 		# catch some possible errors errors
 		# TODO: make sure that these errors cannot even occur
 		if not ap_marker_channels:
@@ -139,11 +155,12 @@ class SpikeImporter(MNGImporter):
 		print("List of APs created.")
 		return actpots
 		
-	# get a list of the extra (interposed) stimuli
-	# two electrical stimuli are put into a single instance of the "extra stimulus" object
-	# if their distance is less than max_gap_time
-	# from the thus created train of stimuli, we can then extract stuff such as
-	# number of stimuli, frequency and distance to next regular stimulus
+	## Get a list of the extra (interposed) stimuli.
+	# Two electrical stimuli are put into a single instance of the "extra stimulus" object if their distance is less than max_gap_time.
+	# From the thus created train of stimuli, we can then extract stuff such as number of stimuli, frequency and distance to next regular stimulus.
+	# @param extra_stimulus_channel The channel in which the extra stimuli are listed
+	# @param regular_el_stimuli List of the regular electrical stimuli
+	# @param max_gap_time The max. gap between two consecutive stimuli so that they are considered as belonging to the same event
 	def get_extra_stimuli(self, extra_stimulus_channel, regular_el_stimuli, max_gap_time = 1.0, verbose = False) -> List[ElectricalExtraStimulus]:
 		# get rows where stimulus channel is one (where stimulus fired)
 		ex_stimuli_df = self.__get_rows_where_equals_one(extra_stimulus_channel)
@@ -181,7 +198,8 @@ class SpikeImporter(MNGImporter):
 		print("List of extra eletrical stimuli created.")
 		return el_ex_stimuli
 		
-	# return the electrical pulses from the digmark channel
+	## Get a list of the regular electrical stimuli in the recording
+	# @param regular_stimulus_channel Channel name for the regular stimuli
 	def get_electrical_stimuli(self, regular_stimulus_channel, verbose = False) -> List[ElectricalStimulus]:
 		# get rows where stimulus channel is one (where stimulus fired)
 		stimuli_df = self.__get_rows_where_equals_one(regular_stimulus_channel)
@@ -195,7 +213,10 @@ class SpikeImporter(MNGImporter):
 		print("List of eletrical stimuli created.")
 		return el_stimuli
 		
-	# return list of mechanical stimlui from the force channel
+	## Get a list of mechanical stimulation events
+	# @param force_channel Column name of the channel with force information
+	# @param threshold Threshold above which a force is considered a mechanical stimulus
+	# @param max_gap_time Max time for which the force value can drop below the threshold without creating two separate force stimuli
 	def get_mechanical_stimuli(self, force_channel, threshold, max_gap_time, verbose = False) -> List[MechanicalStimulus]:
 		# get rows where force channel exceeds threshold
 		force_df = self.__get_rows_where_exceeds_threshold(channel_name = force_channel, threshold = threshold)
@@ -235,14 +256,14 @@ class SpikeImporter(MNGImporter):
 		
 		return
 		
-	# helper function that return rows where channel is one
+	## Helper to get rows from DF where a certain column equals one
 	def __get_rows_where_equals_one(self, channel_name):
 		return self.df[self.df[channel_name] == 1]
 		
-	# helper function to return rows that are unequal NaN
+	## Helper to get rows from DF where a certain column is unequal to NaN
 	def __get_rows_where_not_nan(self, channel_name):
 		return self.df[~np.isnan(self.df[channel_name])]
 		
-	# helper function to get rows that exceed a certain threshold
+	## Helper to get rows from DF where a column exceeds a threshold
 	def __get_rows_where_exceeds_threshold(self, channel_name, threshold):
 		return self.df[self.df[channel_name] > threshold]
