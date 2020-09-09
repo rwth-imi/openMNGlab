@@ -3,17 +3,25 @@ import numpy as np
 from math import ceil
 import matplotlib.pyplot as plt
 
+## Encapsulates creating and maintaining templates for action potentials, e.g., for correlation analysis to assign an AP to a fibre.
 class ActionPotentialTemplate:
 
+	## Signal values for this template.
 	signal_template = None
+	## The length of the signal template.
 	length = None
 
+	## Constructor for a template, given the raw values.
+	# @param signal_template Signal values for this template.
 	def __init__(self, signal_template):
 		self.signal_template = signal_template
 		self.length = len(signal_template)
 		
-	# create a template from a list of action potentials as the "average" action potential from the list.
-	# the APs are aligned by their maximum signal values. 
+	## Create a template from a list of action potentials as the "average" action potential from the list.
+	# The APs are aligned by their maximum signal values.
+	# TODO: make this alignment optional.
+	# TODO: make plotting optional
+	# @param aps List of action potentials from which the template should be created
 	def from_ap_list(aps):
 		
 		num_aps = len(aps)
