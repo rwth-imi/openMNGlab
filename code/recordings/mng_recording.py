@@ -1,23 +1,31 @@
 from signal_artifacts import *
 from typing import Dict, List
 
-'''
-	This is a class to model a complete MNG recording.
-	It encapsulates all lists of events that happen during the recording in a single class.
-'''
+## A class for microneurography recordings
 class MNGRecording:
 
-	# collect all the events that take place during the recording
+	## List of regular electrical stimuli. See signal_artifacts.electrical_stimulus.ElectricalStimulus
 	el_stimuli = None
+	## List of mechanical stimuli. See signal_artifacts.mechanical_stimulus.MechanicalStimulus
 	mech_stimuli = None
+	## List of extra electrical stimuli. See signal_artifacts.electrical_extra_stimulus.ElectricalExtraStimulus
 	ex_el_stimuli = None
+	## List of action potentials. See signal_artifacts.action_potential.ActionPotential
 	actpots = None
+	## List of raw signal values in this recording
 	raw_signal = None
 
+	## Constructor for the recorindg
 	def __init__(self):
 		pass
 		
-	# construct a recording object from the given importer, using the channel names passed as dictionaries/lists
+	## Construct a recording object from the given importer, using the channel names passed as dictionaries/lists
+	# @param importer Spike/Dapsys importer from which the information should be extracted
+	# @stimulus_channels Dictionary with keys "regular_electrical", "force", "extra_electrical" and channel names as values
+	# @ap_channels List of column names for channels with contain APs
+	# @force_threshold Force threshold passed on to the importer for extraction of force stimulus events
+	# @max_ap_gap_time Max gap time between two values s.t. they belong to the same AP, is passed on to the importer
+	# TODO: this will certainly not work with the Dapsys importer!!!
 	def from_importer(importer, stimulus_channels: Dict[str, str], ap_channels: List[str], force_threshold = 0.5, max_ap_gap_time = 0.05):
 		
 		recording = MNGRecording()

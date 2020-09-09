@@ -3,51 +3,53 @@ import pygubu
 import pandas as pd
 from importers import SpikeImporter
 
-'''
-	This class provides a GUI for importing spike files, based on tkinter.
-	The tkinter form is designed in pygubu designer and then loaded into 
-	our script via the pygubu library.
-'''
-
+## This class provides a GUI for importing spike files.
 class SpikeImportGUI:
 
-	# the path to the snooped/loaded file
+	## Path to the snooped/loaded file
 	filepath = None
 
-	# list of channels in the current file
+	## List of channels in the current file
 	channels = []
+	## Selected time channel
 	time_channel = None
+	## Selected signal channel
 	signal_channel = None
+	## A dictionary of selected stimuli channels. Use keys "regular_electrical", "force" and "extra_electrical"
 	stimulus_channels = dict()
+	## List of channels where AP wavemarks are stored
 	ap_channels = []
 
-	# some parameters given by the user
+	## The force threshold above which a force event is detected
 	force_threshold = None
+	## Max gap between two signal values for the AP wavemarks s.t. the values are still considered as belonging to a single AP
 	max_ap_gap = None
 
-	# some pygubu/tkinter classes
+	## Pygubu builder object
 	builder = None
 	
-	# some important widgets
+	## Tk toplevel widget
 	main_window = None
 	
-	# tk variables for the checkbox values
+	## Tk boolean value associated to the "load mech." checkbox
 	load_mech = None
+	## Tk boolean value associated to the "load extra electrical" checkbox
 	load_ex_el = None
 	
-	# this function enables/disables the widget "obj" depending on the value of "enable"
-	# we use this to enable the boxes iff the corresponding checkbox is checked
+	## This function enables/disables the widget "obj" depending on the value of "enable". We use this to enable the boxes iff the corresponding checkbox is checked
 	def enable_obj(obj, enable):
 		if enable == True:
 			obj['state'] = "normal"
 		else:
 			obj['state'] = "disabled"
 			
+	## Helper to enable or disable multiple objects at once
 	def enable_objs(objs, enable):
 		for obj in objs:
 			SpikeImportGUI.enable_obj(obj, enable)
 
-	# snoops the file defined by filepath and returns the names of the columns, i.e. the channel names
+	## snoops a file and returns the names of the columns, i.e. the channel names
+	# @param filepath Path to the CSV file
 	def get_channel_names(filepath):
 		# read the first csv line using pandas to get the column names
 		file_head = pd.read_csv(filepath_or_buffer = filepath, nrows = 1, header = 0)
@@ -57,12 +59,10 @@ class SpikeImportGUI:
 
 		return channels
 	
-	'''
-		This method loads a spike file and saves the important info given through the GUI:
-		- it saves the time and signal channels
-		- it saves a dict of the chosen stimuli channel
-		- it saves a list of the AP channels
-	'''
+	## This method loads a spike file and saves the important info given through the GUI: \n
+	# - it saves the time and signal channels \n
+	# - it saves a dict of the chosen stimuli channel \n
+	# - it saves a list of the AP channels
 	def load_spikefile(self):	
 		# get names of the chosen time and signal channels
 		self.time_channel = self.builder.get_object('sel_time').get()
@@ -87,10 +87,7 @@ class SpikeImportGUI:
 		
 		self.main_window.destroy()
 	
-	'''
-		if a file is selected by the user, the UI will "snoop" the file s.t. it gets the channel names
-		these are then written into the comboboxes, which are enabled etc.
-	'''
+	## if a file is selected by the user, the UI will "snoop" the file s.t. it gets the channel names. These are then written into the comboboxes, which are enabled etc.
 	def snoop_spikefile(self):
 		self.filepath = self.builder.get_object("file_spike")['path']
 		
@@ -128,7 +125,7 @@ class SpikeImportGUI:
 		txt_maxgap['state'] = "normal"
 		txt_maxgap.insert(0, "0.005")
 	
-	# construct the class
+	## Construct the wrapper class for the GUI
 	def __init__(self):
 		self.builder = pygubu.Builder()
 		self.builder.add_from_file('./gui/spike_import.ui')
