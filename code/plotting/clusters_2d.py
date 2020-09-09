@@ -3,17 +3,17 @@ import plotly.graph_objects as go
 import numpy as np
 from plotting import get_fibre_color
 
-'''
-	**********************************
-	A class to wrap a 2D plot of AP clusters
-	**********************************
-'''
+## Provides functionality to plot a 2D cluster plot.
+# This is a scatter plot we can use to visualize clustering of 2D data points.
 class ClusterPlot2D:
 	
+	## Constructs a plot with the provided size
 	def __init__(self, width = 1000, height = 600):
 		self.width = width
 		self.height = height
 				
+	## Plots the data provided in a pandas dataframe.
+	# @param clustered_data_df A pandas dataframe resulting from clustering, see also fibre_tracking.dbscan_clustering.DBScanClustering
 	def plot(self, clustered_data_df):
 		fig = go.Figure(layout = {"width": self.width, "height": self.height})
 		
@@ -38,6 +38,8 @@ class ClusterPlot2D:
 		
 		self.fig = fig
 		
+	## Helper function to create plotly hover labels for an AP
+	# param df Input dataframe containing this particular AP
 	def make_hover_labels_from_df(df):
 		labels = []
 		for i, row in df.iterrows():

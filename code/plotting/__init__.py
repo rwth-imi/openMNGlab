@@ -1,3 +1,6 @@
+## @package plotting
+# Offers funcionality for MNG-related plotting
+
 from plotting.colors import get_fibre_color
 
 from plotting.falling_leaf import FallingLeafPlot
