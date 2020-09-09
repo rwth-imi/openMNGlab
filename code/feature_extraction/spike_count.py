@@ -1,5 +1,11 @@
 import numpy as np
 
+## Calculate the "spike count" feature.
+# Subdivide the timeframe before the action potential into several small fragments, then count the number of APs in each of these fragments.
+# @param actpot The action potential to consider
+# @param actpots List of APs to subdivide
+# @param timeframe Pre-AP timeframe to divide
+# @param num_intervals Number of intervals to divide the timeframe into
 def get_spike_count(actpot, actpots, timeframe, num_intervals):
 	t_max = actpot.onset
 	t_min = actpot.onset - timeframe
@@ -19,19 +25,19 @@ def get_spike_count(actpot, actpots, timeframe, num_intervals):
 		
 	return counts
 
-'''
-	Builds a feature vector that saves the number of action potentials for each sub-interval.
-	The sub-intervals are constructed as follows:
-	1.) divide the whole interval defined by the timeframe into two equal parts
-	2.) then, divide the rightmost part into two equally sized sub-intervals
-	3.) repeat for num_splits times
-	
-	This may result in a vector of a shape like this:
-	100s with 5 splits results in values for the following pre-AP time frames
-	intervals |100s|50s|25s|12.5s|6.25s|3.125s|
-	(15, 7, 4, 2, 1, 3)
-'''
-
+## Builds a feature vector that saves the number of action potentials for each sub-interval.
+# The sub-intervals are constructed as follows: \n
+# 1.) divide the whole interval defined by the timeframe into two equal parts \n
+# 2.) then, divide the rightmost part into two equally sized sub-intervals \n
+# 3.) repeat for num_splits times \n\n
+# This may result in a vector of a shape like this: \n
+# 100s with 5 splits results in values for the following pre-AP time frames \n
+# intervals |100s|50s|25s|12.5s|6.25s|3.125s| \n
+# (15, 7, 4, 2, 1, 3)
+# @param actpot AP to calculate the feature for
+# @param actpots List of action potentials to use for calculation
+# @param timeframe Pre-AP timeframe to consider
+# @param num_splits How often the timeframe should be split into smaller intervals (results in num_split + 1 counts)
 def get_adaptive_spike_count(actpot, actpots, timeframe, num_splits):
 	t_max = actpot.onset
 	t_min = actpot.onset - timeframe

@@ -1,8 +1,6 @@
-'''
-	This method calculates the "normalized energy" for an action potential
-	1.) sum the squared signal values and
-	2.) divide by the number of values for normalization
-'''
+## This method calculates the "normalized energy" for an action potential
+# 1.) sum the squared signal values and
+# 2.) divide by the number of values for normalization
 def calc_normalized_energy(actpot):
 	num_values = len(actpot.raw_signal)
 	

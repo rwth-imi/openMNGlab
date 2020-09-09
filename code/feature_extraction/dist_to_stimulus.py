@@ -1,4 +1,6 @@
-# calculate distance to prev. eletrical stimulus
+## Calculate distance of an action potential to prev. eletrical stimulus
+# @param actpot AP
+# @param stimuli_list List of regular electrical stimuli
 def calc_dist_to_prev_reg_el_stimulus(actpot, stimuli_list):
 	# if there is no electrical stimulus:
 	# return -1 so that the feature becomes insignificant
@@ -9,8 +11,9 @@ def calc_dist_to_prev_reg_el_stimulus(actpot, stimuli_list):
 	dist = actpot.onset - prev_stimulus.timepoint
 	return dist, prev_stimulus
 	
-# go through the (ascending) list of el. stimuli to find the previous stimulus
-# this is, according to the timestamp
+## Finds the previous electrical stimulus by going through a sorted list of regular electrical stimuli.
+# @param actpot The AP
+# @param stimuli_list List of electrical stimuli, sorted in ascending order by time
 def find_prev_reg_el_stimulus(actpot, stimuli_list):		
 	index = 0
 	
