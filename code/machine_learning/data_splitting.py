@@ -1,6 +1,31 @@
 import random as rnd
 from math import ceil
 
+from itertools import cycle
+
+## This function takes simple continuous separation between train and test data
+# @param actpots List of APs that should be split into train and test sets
+# @param test_percentage The ratio of samples to be used for testing
+def primitive_split(actpots, test_percentage=0.25):
+
+    first_idx = rnd.randrange(0, len(actpots))
+    list_idxs = [i for i in range(0, len(actpots))]
+    len_test = ceil(len(actpots) * test_percentage)
+    len_train = len(actpots) - len_test
+    test_aps, train_aps = [], []
+    for i in cycle( list_idxs[first_idx:] + list_idxs[:first_idx] ):
+        if len(test_aps) < len_test:
+            test_aps.append(actpots[i])
+        elif len(train_aps) < len_train:
+            train_aps.append(actpots[i])
+        else:
+            break
+
+    assert len(set(train_aps).intersection(set(test_aps))) == 0
+    
+    return train_aps, test_aps
+
+
 ## This function aims at working around the issue that we might get too good results from just picking APs randomly.
 # Instead, we extract segments from the MNG recording, one for training and the other for testing.
 # E.g., with 3 intervals and 0.2 test percentage, you get a testing set that contains 3 "groups" of subsequent APs that make up 20 percent of the recording in total.
