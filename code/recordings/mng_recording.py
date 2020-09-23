@@ -47,3 +47,17 @@ class MNGRecording:
 		recording.raw_signal = importer.get_raw_signal_split_by_stimuli(el_stimuli = recording.el_stimuli, verbose = False)
 		
 		return recording
+		
+	## Finds the previous electrical stimulus by going through the sorted list of regular electrical stimuli.
+	# @param actpot The AP
+	def get_prev_el_stimulus(actpot, el_stimuli):
+		index = 0
+
+		len_list = len(el_stimuli)
+		while(actpot.onset > el_stimuli[index + 1].timepoint):
+			index = index + 1
+			# we don't want to exceed the list length
+			if (index == len_list - 1):
+				break
+			
+		return el_stimuli[index]

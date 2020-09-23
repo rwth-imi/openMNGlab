@@ -1,6 +1,9 @@
 ## @package feature_extraction
 # The methods for feature extraction go here
 
-from feature_extraction.dist_to_stimulus import calc_dist_to_prev_reg_el_stimulus, find_prev_reg_el_stimulus
-from feature_extraction.normalized_energy import calc_normalized_energy
-from feature_extraction.spike_count import get_spike_count, get_adaptive_spike_count
+from feature_extraction.feature_extractor import FeatureExtractor
+
+from feature_extraction.response_latency import ResponseLatency
+from feature_extraction.normalized_energy import NormalizedSignalEnergy
+from feature_extraction.spike_count import SpikeCount
+from feature_extraction.adaptive_spike_count import AdaptiveSpikeCount
