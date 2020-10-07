@@ -1,5 +1,7 @@
 from signal_artifacts import *
 from typing import Dict, List
+from recordings.sweep import Sweep
+from math import floor
 
 ## A class for microneurography recordings
 class MNGRecording:
@@ -14,6 +16,12 @@ class MNGRecording:
 	actpots = None
 	## List of raw signal values in this recording
 	raw_signal = None
+	## The sampling rate of this recording
+	sampling_rate = None
+	## The starting time of this recording
+	t_start = None
+	## The end time of this recording
+	t_end = None
 
 	## Constructor for the recorindg
 	def __init__(self):
@@ -46,6 +54,9 @@ class MNGRecording:
 		
 		recording.raw_signal = importer.get_raw_signal_split_by_stimuli(el_stimuli = recording.el_stimuli, verbose = False)
 		
+		recording.t_start, recording.t_end = importer.get_time_range()
+		recording.sampling_rate = importer.sampling_rate
+		
 		return recording
 		
 	## Finds the previous electrical stimulus by going through the sorted list of regular electrical stimuli.
@@ -61,3 +72,27 @@ class MNGRecording:
 				break
 			
 		return el_stimuli[index]
+		
+	## For certain analysis, e.g., for AP tracking using track correlation, we need to split the recording into recordings.Sweep objects.
+	def split_into_sweeps(self):
+		sweeps = []
+		# iterate over all the electrical stimuli to extract their following sweeps/intervals
+		for idx, el_stim in enumerate(self.el_stimuli):
+		
+			raw_signal = self.raw_signal[idx]
+			
+			# if this is not the last stimulus, take the interval towards the next one
+			if (idx + 1 < len(self.el_stimuli)):
+				next_stim = self.el_stimuli[idx + 1]
+				actpots = [ap for ap in self.actpots if ap.onset > el_stim.timepoint and ap.onset < next_stim.timepoint]
+				t_end = next_stim.timepoint
+			# if this is the last stimulus, take the recording until the end
+			else:
+				actpots = [ap for ap in self.actpots if ap.onset > el_stim.timepoint]
+				t_end = self.t_end
+			
+			sweep = Sweep(stimulus = el_stim, actpots = actpots, raw_signal = raw_signal, t_start = el_stim.timepoint, t_end = t_end)
+			# append this sweep to the existing list of sweeps
+			sweeps.append(sweep)
+			
+		return sweeps
