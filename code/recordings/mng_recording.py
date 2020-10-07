@@ -42,8 +42,22 @@ class MNGRecording:
 		if "extra_electrical" in stimulus_channels:
 			recording.ex_el_stimuli = importer.get_extra_stimuli(extra_stimulus_channel = stimulus_channels["extra_electrical"], regular_el_stimuli = recording.el_stimuli)
 			
-		recording.actpots = importer.get_action_potentials(max_gap_time = max_ap_gap_time, ap_marker_channels = ap_channels, el_stimuli = recording.el_stimuli, mech_stimuli = recording.mech_stimuli)
+		recording.actpots = importer.get_action_potentials(max_gap_time = max_ap_gap_time, ap_marker_channels = ap_channels)
 		
 		recording.raw_signal = importer.get_raw_signal_split_by_stimuli(el_stimuli = recording.el_stimuli, verbose = False)
 		
 		return recording
+		
+	## Finds the previous electrical stimulus by going through the sorted list of regular electrical stimuli.
+	# @param actpot The AP
+	def get_prev_el_stimulus(actpot, el_stimuli):
+		index = 0
+
+		len_list = len(el_stimuli)
+		while(actpot.onset > el_stimuli[index + 1].timepoint):
+			index = index + 1
+			# we don't want to exceed the list length
+			if (index == len_list - 1):
+				break
+			
+		return el_stimuli[index]
