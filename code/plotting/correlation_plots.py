@@ -7,21 +7,13 @@ import ipywidgets as widgets
 from ipywidgets import interact, interact_manual, interactive, fixed
 from .conversion import *
 
+## Plot whole recording divided by pulses, use special colors for threshold, template etc.
+# @param dapsys DapsysImporter | dapsys importer instance. 
+# @param amplitudes_list list | Seg2seg amplitudes from dapsys.get_raw_signal_split_by_stimuli() function.
+# @param freq float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
+# @param sigs_dict list | Dict from conversion.convert_signals_to_dict()
 def big_plot(dapsys, sigs_dict, amplitudes_list, freq):
-    '''
-    Plot whole recording divided by pulses. Color APs and template with special. 
     
-    Parameters
-    -------
-    dapsys: DapsysImporter | dapsys importer instance. 
-    amplitudes_list: list | Seg2seg amplitudes from dapsys.get_raw_signal_split_by_stimuli() function.
-    freq: float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
-    sigs_dict: list | Dict from conversion.convert_signals_to_dict()
-    
-    Returns
-    -------
-    g: go.FigureWidget | Widget instance based on dapsys info. 
-    '''     
     sigs_dict_filter = [d for d in sigs_dict if d['segment_idx']==0 or d['name']=='Threshold']
     traces_signals = find_traces_amplitudes(sigs_dict_filter)
 
@@ -37,19 +29,15 @@ def big_plot(dapsys, sigs_dict, amplitudes_list, freq):
     
     return g 
 
+## Observer for big_plot() function
+# @param change traitlets.utils.bunch.Bunch | Necessary for widgets to work? 
+# @param g go.FigureWidget | from huge_plot()
+# @param amplitudes_list list | Seg2seg amplitudes from dapsys.get_raw_signal_split_by_stimuli() function.
+# @param segments_main widgets.IntSlider | slider from widgets
+# @param freq float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
+# @param sigs_dict list | Dict from conversion.convert_signals_to_dict()
 def update_big_plot(change, g, amplitudes_list, segments_main, freq, sigs_dict):
-    '''
-    Observer for big_plot() function.
     
-    Parameters
-    -------
-    change: traitlets.utils.bunch.Bunch | Necessary for widgets to work? 
-    g: go.FigureWidget | from huge_plot()
-    amplitudes_list: list | Seg2seg amplitudes from dapsys.get_raw_signal_split_by_stimuli() function.
-    segments_main: widgets.IntSlider | slider from widgets
-    freq: float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
-    sigs_dict: list | Dict from conversion.convert_signals_to_dict()
-    '''      
     with g.batch_update():
             
         idx = segments_main.value-1
@@ -65,22 +53,14 @@ def update_big_plot(change, g, amplitudes_list, segments_main, freq, sigs_dict):
         g.layout.barmode = 'overlay'
         g.layout.title.text = f'Segment {idx+1}'
 
+## Plot histograms and APs simultaneously
+# @param dapsys DapsysImporter | dapsys importer instance
+# @param tap_corrs list | list of correlations between template and manually found APs
+# @param real_corrs list | list of correlations between template and correct APs
+# @param freq float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1)
+# @param trck_dict dict | From Dapsys.extract_segment_idxs_times()
 def histo_signal_plot(dapsys, tap_corrs, real_corrs, freq, taps, trck_dict):
-    '''
-    Plot histograms and APs simultaneously.  
     
-    Parameters
-    -------
-    dapsys: DapsysImporter | dapsys importer instance. 
-    tap_corrs: list | list of correlations between template and manually found APs.
-    real_corrs: list | list of correlations between template and correct APs. 
-    freq: float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
-    trck_dict: dict | From Dapsys.extract_segment_idxs_times().
-    
-    Returns
-    -------
-    [fig1, fig2] list | list of two figures, one for histogram and one for signals.  
-    '''     
     fig1 = go.FigureWidget()
     fig1.add_trace(go.Histogram(x=tap_corrs, name = 'Above-threshold', marker_color='green', legendgroup='a'))
     fig1.add_trace(go.Histogram(x=real_corrs, name = 'Correct', marker_color='gold', legendgroup='b'))
@@ -106,23 +86,19 @@ def histo_signal_plot(dapsys, tap_corrs, real_corrs, freq, taps, trck_dict):
     
     return [fig1, fig2]
 
+## Observer for histo_signal_plot() function
+# @param out_mod widgets.Output() | Widget output
+# @param slider_mod widgets.FloatSlider | Widget slider 
+# @param dapsys DapsysImporter | dapsys importer instance 
+# @param freq float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1) 
+# @param trck_dict dict | From Dapsys.extract_segment_idxs_times()
+# @param fig1, fig2 go.FigureWidget() | figures from histo_signal_plot()
+# @param tap_corrs list | list of correlations between template and manually found APs
+# @param taps List[ActionPotential] | dapsys.get_threshold_action_potentials
 def histo_signal_plot_update(_, out_mod, slider_mod,
                              dapsys, freq, trck_dict, 
                              fig1, fig2, tap_corrs, taps):
-    '''
-    Observer for histo_signal_plot() function. 
     
-    Parameters
-    -------
-    out_mod: widgets.Output() | Widget output. 
-    slider_mod: widgets.FloatSlider | Widget slider. 
-    dapsys: DapsysImporter | dapsys importer instance. 
-    freq: float | Uniform difference between two neighboring datapoints within the file that we're using (e.g. 0.1). 
-    trck_dict: dict | From Dapsys.extract_segment_idxs_times().
-    fig1, fig2: go.FigureWidget() | figures from histo_signal_plot().
-    tap_corrs: list | list of correlations between template and manually found APs.
-    taps: List[ActionPotential] | dapsys.get_threshold_action_potentials
-    '''    
     with out_mod:
         
         correlation_boundary = slider_mod.value 
@@ -138,31 +114,18 @@ def histo_signal_plot_update(_, out_mod, slider_mod,
             for scatter in traces_full+template_dict:
                 fig2.add_trace(scatter)
 
-
-
-
+## Plot APs in time-correlation manner
+# @param thresh_df | Dataframe generated based on dict_to_df()
 def reaction_plot_threshold(thresh_df):
-    '''
-    Plot APs in time-correlation manner.  
     
-    Parameters
-	----------
-    thresh_df: df | Dataframe generated based on dict_to_df(). 
-
-    Returns
-	-------
-    gg: go.FigureWidget | Plotly Figure 
-                      x axis : Time/Latency, y axis : Correlation,
-                      darker the color, later the APs
-    '''     
     idxs = thresh_df.segment_id.unique()
-    cols = colors.get_colors(plt.cm.plasma, len(idxs))
+    cols = colors.get_colors(plt.cm.plasma, len(idxs)+1)
     traces = []
     
     for segment_idx in idxs:
         sub_df = thresh_df[thresh_df['segment_id']==segment_idx]
         traces.append(go.Scatter(x=sub_df['Time (s)'], y=sub_df['Correlation'], 
-                                 name=f'Segment: {segment_idx+1} | No of spikes: {len(sub_df)}', 
+                                 name=f'Segment: {segment_idx} | No of spikes: {len(sub_df)}', 
                                  opacity = 0.20, mode = 'markers', marker=dict(color=cols[segment_idx])))
 
     gg = go.FigureWidget(data=traces, layout=go.Layout(title=dict(text=f'Threshold signals correlation'), barmode='overlay',
@@ -173,18 +136,14 @@ def reaction_plot_threshold(thresh_df):
     gg.data[0].opacity = 1
     return gg
 
+## Observer for reaction_plot_threshold()
+# @param out_act widgets.Output() | Widget output
+# @param g go.FigureWidget | From reaction_plot_threshold() function
+# @param segment_slider_act widgets.FloatSlider | Widget slider
+# @param mapping dict | Dictionary with APs in form of keys being segment_idx and values being cumulative integers (spike enumerator) 
+# @param idxs list | unique segments
 def delay_plot_set_active_segment(_, out_act, g, segment_slider_act, mapping, idxs):
-    '''
-    Observer for reaction_plot_threshold(). 
     
-    Parameters
-	----------
-    out_act: widgets.Output() | Widget output. 
-    g: go.FigureWidget | From reaction_plot_threshold() function
-    segment_slider_act: widgets.FloatSlider | Widget slider. 
-    mapping: dict | Dictionary with APs in form of keys being segment_idx and values being cumulative integers (spike enumerator).  
-    idxs: list | unique segments. 
-    '''     
     with out_act:
         active_segment = segment_slider_act.value-1
         active_segment = mapping[active_segment]
@@ -196,33 +155,25 @@ def delay_plot_set_active_segment(_, out_act, g, segment_slider_act, mapping, id
             else:
                 g.data[idx].opacity = 0.20
 
+## Observer for reaction_plot_threshold()
+# @param out_act widgets.Output() | Widget output
+# @param g go.FigureWidget | From reaction_plot_threshold() function
+# @param idxs list | unique segments
 def delay_plot_set_all_segments_active(_, out_act, g, idxs):
-    '''
-    Observer for reaction_plot_threshold(). 
     
-    Parameters
-	----------
-    out_act: widgets.Output() | Widget output. 
-    g: go.FigureWidget | From reaction_plot_threshold() function
-    idxs: list | unique segments. 
-    '''  
     with out_act:
         for idx in range(0, len(idxs)):
             g.data[idx].opacity = 1
-            
-def save_excel(_, out_act, thresh_df, text_act):
-    '''
-    Save correlations of APs in excel file. 
     
-    Parameters
-	----------
-    out_act: widgets.Output() | Widget output. 
-    thresh_df: df | Dataframe generated based on dict_to_df(). 
-    text_act: String | name/path of the excel file to be saved. 
-    '''     
+## Save correlations of APs in excel file
+# @param out_act widgets.Output() | Widget output
+# @param thresh_df df | Dataframe generated based on dict_to_df()
+# @param text_act String | name/path of the excel file to be saved
+def save_excel(_, out_act, thresh_df, text_act):
+    
     with out_act: 
         display(HTML(f'<i>Saving .. {text_act.value}.xlsx</i>'))
         saving_df = deepcopy(thresh_df)
-        saving_df['segment_id'] = saving_df['segment_id'] + 1
+        saving_df['segment_id'] = saving_df['segment_id']
         saving_df.to_excel(f'{text_act.value}.xlsx', engine='xlsxwriter', index=False)
         display(HTML('<i>File successfully saved!</i>'))
