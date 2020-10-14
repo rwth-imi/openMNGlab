@@ -22,3 +22,7 @@ class Sweep:
 		
 		self.t_start = t_start
 		self.t_end = t_end
+		
+	@property
+	def duration(self):
+		return self.t_end - self.t_start

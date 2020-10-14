@@ -4,3 +4,5 @@
 
 from fibre_tracking.dbscan_clustering import DBSCANClustering
 from fibre_tracking.ap_template import ActionPotentialTemplate
+
+from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate

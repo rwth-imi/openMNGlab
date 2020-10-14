@@ -15,14 +15,28 @@ def median_RMS(sweeps, center_sweep_idx, latency_shift, latency, radius, window_
 	# check if the input is valid
 	if center_sweep_idx - radius < 0 or center_sweep_idx + radius > len(sweeps) - 1:
 		raise ValueError("The radius for median RMS calculation exceeds either the first or the last position in the sweep array. Reduce radius or increase the center sweep index to resolve this issue.")
-	
+		
 	# restrict only to the sweeps which lie within the radius around the "center sweep"
 	sweeps = sweeps[center_sweep_idx - radius : center_sweep_idx + radius]
 	rms = []
 	
-	for r, sweep in zip(range(-radius, radius), sweeps):
+	for r, (sweep_idx, sweep) in zip(range(-radius, radius), enumerate(sweeps)):
+		# calculate the latency shift in each direction
 		t = latency + r * latency_shift
-		sig = sweep.raw_signal[floor((t - window_size) * sampling_rate) : floor((t + window_size) * sampling_rate)]
+		# calculate the window borders
+		t_min = floor((t - window_size) * sampling_rate)
+		t_max = floor((t + window_size) * sampling_rate)
+		
+		# TODO: Redo this completely
+		# reconstruct the signal that we need to analyze with the window. If the window exceeds the left or right border of a sweep, we'll have to "wrap around"
+		sig = []
+		if t_min < 0:
+			sig = sweeps[sweep_idx - 1].raw_signal[floor(t_min * sampling_rate) : -1]
+		sig.append(sweep.raw_signal[max(0, t_min) : min(t_max, len(sweep.raw_signal))])
+		if t_max > sweep.duration:
+			sig.append(sweeps[sweep_idx + 1].raw_signal[0 : floor((t_max - sweep.duration) * sampling_rate)])
+		
+		# add the calculated RMS to the list of RMSes in the R-environment
 		rms.append(root_mean_square_power(sig))
 	
 	return median(rms)
@@ -30,7 +44,11 @@ def median_RMS(sweeps, center_sweep_idx, latency_shift, latency, radius, window_
 ## This function calculates the root mean square for a time series of signal values. See also: https://en.wikipedia.org/wiki/Root_mean_square
 # @param signal The time series of input signal values
 def root_mean_square_power(signal):
-	n = len(signal)
+	# check input
+	if not signal:
+		raise ValueError("Tried to calculate RMS for empty signal, something probably went wrong")
+	
+	n = len(signal)	
 	squared_signal = [x * x for x in signal]
 	
 	return sqrt(sum(squared_signal) / n)
