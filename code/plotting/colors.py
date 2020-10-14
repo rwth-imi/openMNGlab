@@ -5,8 +5,6 @@ plotly_std_colors = ["blue", "green", "red", "cyan", "magenta", "yellow", "black
 def get_fibre_color(index):
 	return plotly_std_colors[index % len(plotly_std_colors)]
 
-	plotly_std_colors = ["blue", "green", "red", "cyan", "magenta", "yellow", "black"]
-
 # Dapsys code
 from matplotlib import pyplot as plt
 import numpy as np
