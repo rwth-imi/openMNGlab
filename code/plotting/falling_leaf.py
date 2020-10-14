@@ -45,7 +45,7 @@ class FallingLeafPlot:
 					marker_color = "Black",
 					marker_symbol = "star",
 					hovertemplate = "%{text}",
-					text = ["time = " + "{:1.4f}".format(stim.timepoint) + "s" for stim in regular_stimuli],
+					text = ["time = " + "{:1.4f}".format(stim.timepoint) + "s<br>Index = " + str(idx) for idx, stim in enumerate(regular_stimuli)],
 					name = "Electrical Stimuli"
 				)
 			)
@@ -120,7 +120,7 @@ class FallingLeafPlot:
 						y = [prev_timept] * 2,
 						marker_symbol = ["triangle-nw", "triangle-ne"],
 						marker_size = 7,
-						marker_color = get_fibre_color(actpot.implied_fibre_index),
+						marker_color = get_fibre_color(actpot.implied_fibre_index) if actpot.implied_fibre_index != None else "black",
 						hovertemplate = "%{text}",
 						text = ["Latency: " + "{:1.4f}".format(actpot.features["latency"]) + "s<br>" + "Fibre Index: " + str(actpot.implied_fibre_index), \
 						"Offset: " + "{:1.4f}".format(actpot.features["latency"] + actpot.duration) + "s"],
