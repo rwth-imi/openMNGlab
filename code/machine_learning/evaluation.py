@@ -1,6 +1,10 @@
-# -*- coding: utf-8 -*-
-
-
+## This function checks for overfitting (difference between train and test data)
+# @param X_train list | Training data 
+# @param X_test list | Test data 
+# @param y_train list | Training labels 
+# @param y_test list | Test labels 
+# @param fitted_model sklearn.linear_model._base.LinearRegression | Trained model
+# @param metric function | Overfitting function, e.g. mean_squared_error
 def overfit_check(X_train, X_test, y_train, y_test,
                   fitted_model, metric):
     
@@ -9,7 +13,13 @@ def overfit_check(X_train, X_test, y_train, y_test,
     
     return metric(y_test, y_pred) - metric(y_train, y_train_pred)
 
-        
+## This function returns accuracy 
+# @param X_train list | Training data 
+# @param X_test list | Test data 
+# @param y_train list | Training labels 
+# @param y_test list | Test labels 
+# @param fitted_model sklearn.linear_model._base.LinearRegression | Trained model
+# @param metric function | Accuracy function, e.g. r2_score
 def accuracy_check(X_train, X_test, y_train, y_test, 
                    fitted_model, metric):
     
@@ -17,7 +27,12 @@ def accuracy_check(X_train, X_test, y_train, y_test,
         
     return metric(y_test, y_pred)
         
-
+## This function checks for homoscedascity  
+# @param X_train list | Training data 
+# @param X_test list | Test data 
+# @param y_train list | Training labels 
+# @param y_test list | Test labels 
+# @param fitted_model sklearn.linear_model._base.LinearRegression | Trained model
 def homoscedascity_check(X_train, X_test, y_train, y_test, 
                          fitted_model):
     

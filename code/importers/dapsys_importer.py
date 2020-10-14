@@ -16,6 +16,7 @@ from signal_artifacts import ElectricalStimulus
 from fibre_tracking import ActionPotentialTemplate
 
 
+## This class reads Dapsys data after they have been extract in .csv format
 class DapsysImporter(MNGImporter):
     
     template = None 
@@ -23,18 +24,9 @@ class DapsysImporter(MNGImporter):
     main_pulses = None 
     point_data = [] 
     
+	## Constructs an importer object by reading four different .csv files used for analysis
+	# @param dir_path String | Path to the directory which contains four .csv files
     def __init__(self, dir_path):
-        '''
-        Read Dapsys data which contains four files:
-            Template: ActionPotentialTemplate | Average signal Dapsys generation: Cursor needs to be on a track, right mouse click -> align latency track -> align to template -> copy template to clipboard -> Ja. 
-            Main pulses: List[ElectricalStimulus] | Timestamps of pulses
-            Point data: list | Continuous recordings of points
-            Track times: list | Timestamps of 100% sure spikes of ours
-            
-		Parameters
-		----------
-		dir_path: String | directory of the files
-        '''
         
         print("Reading files ... ")
         
@@ -71,27 +63,13 @@ class DapsysImporter(MNGImporter):
                 del recordings
                 print(f'Signal: {path_short}', end =" | ")
 
-
+    ## Get raw signal out of excel file
     def get_raw_signal(self) -> List[float]:
-        '''
-		Get raw signal out of excel file.
-        
-		Returns
-		-------
-		list | Seg2seg amplitudes 
-		'''             
         return np.array(self.point_data)[:, 1]   
     
-    
+    ## Generate segment-to-segment data from point data based on main pulses
     def get_raw_signal_split_by_stimuli(self):
-        '''
-		Generate segment-to-segment data from point data based on main pulses.
         
-        
-		Returns
-		-------
-		amplitudes_list: list | Seg2seg amplitudes
-		'''    
         boundary_index=0
         list_copy = self.point_data
         boundary_list = self.main_pulses
@@ -115,20 +93,9 @@ class DapsysImporter(MNGImporter):
             
         return amplitudes_list
     
-    
+    ## Generate segment-to-segment data from point data based on main pulses (Based on previous Brain's mathematica code)
     def get_raw_timestamp_split_by_stimuli(self):
-        '''
-		Generate segment-to-segment data from point data based on main pulses.
         
-        
-		Parameters
-		----------
-		dir_path: String | directory of the files
-        
-		Returns
-		-------
-        times_list: list | Seg2seg timestamps
-		'''    
         boundary_index=0
         list_copy = self.point_data
         boundary_list = self.main_pulses
@@ -152,20 +119,10 @@ class DapsysImporter(MNGImporter):
             
         return times_list
     
-    
+    ## Return main pulses
+    # @param path_full String | directory of the file containing stimuli
+    # @param time_column String | .csv column for stimuli
     def get_electrical_stimuli(self, path_full, time_column) -> List[ElectricalStimulus]:
-        '''
-		Return main pulses.
-        
-        
-		Parameters
-		----------
-		path_full: String | directory of the file
-        
-		Returns
-		-------
-		main_pulses: list | Electrical stimuli
-		'''    
         
         stimuli_values = pd.read_csv(path_full, header=None, usecols=[0], names = [time_column])[time_column].values
         el_stimuli = []
@@ -175,32 +132,34 @@ class DapsysImporter(MNGImporter):
         
         return el_stimuli
     
-    
+    ## For a list of 100% correct signal timestamps, return them in AP form with 30 datapoints interval. 
     def get_action_potentials(self):
-        '''
-        For a list of 100% correct signal timestamps, return them in AP form. 
-        
-        Returns
-        -------
-        aps: List[ActionPotential] | List of correct APs. 
-        '''
         
         max_pos = np.argmax(self.template.signal_template)
         main_pulse_idx, track_time_idx, time_idx = 0, 0, 0
         aps = []
         
-        while main_pulse_idx < len(self.main_pulses)-1:
+        while main_pulse_idx < len(self.main_pulses):
+            
+            # We define lower and upper boundary in order to define stimuli index of appearing AP
+            if main_pulse_idx == len(self.main_pulses)-1:
+                # If we eached to a last stimulus, upper boundary will be last timepoint (for the sake of processing)
+                upper_border = self.point_data[-1][0]
+            else:
+                upper_border = self.main_pulses[main_pulse_idx+1].timepoint
             
             lower_border = self.main_pulses[main_pulse_idx].timepoint
-            upper_border = self.main_pulses[main_pulse_idx+1].timepoint
             
             if self.track_times[track_time_idx] > lower_border and self.track_times[track_time_idx] < upper_border:
+                # Iterate until we get to the corresponding track time 
                 while self.point_data[time_idx][0] < self.track_times[track_time_idx]: 
                     time_idx += 1
+                # I firstly extract the index of where is the actual maximum, since this is not being done by default when we extract track times from Dapsys! 
                 max_idx = time_idx - 15 + np.argmax(np.array(self.point_data[time_idx-15 : time_idx+15])[:, 1])
                 
-                onset_idx = max_idx-max_pos
-                offset_idx = max_idx+(30-max_pos)
+                # Then I extract AP such that the index of a peak is the same as in the template 
+                onset_idx = max_idx - max_pos
+                offset_idx = max_idx + (30 - max_pos)
                 raw_signal = np.array(self.point_data[ onset_idx : offset_idx ])[:, 1]
                 timestamps = np.array(self.point_data[ onset_idx : offset_idx ])[:, 0]
                 
@@ -216,22 +175,11 @@ class DapsysImporter(MNGImporter):
             
         return aps
     
-    
+    ## Go through complete recordings, extract above threshold signals (manual APs with 30 datapoints interval)
+    # @param threshold float | Threshold value for extracting APs
+    # @param length_of_signal int | Length of the part of the signal that we are extracting as AP
     def get_threshold_action_potentials(self, threshold, length_of_signal=30) -> List[ActionPotential]:
-        '''
-        Go through complete recordings, extract above threshold signals (manual APs)
         
-        Parameters
-        ----------
-        spikes_crossings: dict | Template signal.
-        amplitudes_list: list | Seg2seg amplitudes from get_raw_signal_split_by_stimuli() function.
-        times_list: list | Seg2seg timestamps from get_raw_signal_split_by_stimuli() function.
-        max_pos: int | Index for highest magnitude within 30ms (list with length of 30) template signal.
-    
-        Returns
-        -------
-        signals: List[ActionPotential] | list of Action potentials. 
-        '''
         aps = []
         amplitudes_list = self.get_raw_signal_split_by_stimuli()
         times_list = self.get_raw_timestamp_split_by_stimuli()
@@ -243,18 +191,23 @@ class DapsysImporter(MNGImporter):
         for segment_idx, spike_timestamps in spikes_crossings.items():
             for i, time_idx in enumerate(spike_timestamps):
                 
+                # Similar procedure as with regular APs, fit it, so that max corresponds to maximum position of AP. 
                 left_bound, ampl, tim = time_idx + ( length_of_signal - max_pos ), [], []
                 
+                # Iterate from right to left with adding values
+                # This is an edge case when signal is overlaped with two different segments
                 while left_bound >= len(amplitudes_list[segment_idx]):
                     ampl.insert(0, amplitudes_list[segment_idx+1][left_bound - len(amplitudes_list[segment_idx])])
                     tim.insert(0, times_list[segment_idx+1][left_bound - len(amplitudes_list[segment_idx])])
                     left_bound -= 1
                 
+                # Regular case
                 while len(ampl) < length_of_signal and left_bound > 0:
                     ampl.insert(0, amplitudes_list[segment_idx][left_bound])
                     tim.insert(0, times_list[segment_idx][left_bound])
                     left_bound -= 1
                 
+                # If there is an overlap between the signals extract points that are missing from first part 
                 if len(ampl)<length_of_signal:
                     length = len(amplitudes_list[segment_idx-1])
                     rest_indices = length - (length_of_signal - len(ampl))
@@ -263,7 +216,7 @@ class DapsysImporter(MNGImporter):
                         tim.insert(0, times_list[segment_idx-1][rest_idx])
                  
                 if(len(ampl)!=30):
-                    print(f'Irregular signal with {len(ampl)}! Found a bug.')
+                    print(f'Irregular signal with {len(ampl)}! Found a bug = some edge case has not been covered.')
                     
                 raw_signal = np.array([ampl[i] for i in range(len(ampl))])
                 timestamps = np.array([tim[i] for i in range(len(tim))])
@@ -279,20 +232,11 @@ class DapsysImporter(MNGImporter):
                 
         return aps
     
-    
+    ## For each segment, return indices of full signal that contain above threshold amplitudes
+    # @param amplitudes_list list | Seg2seg amplitudes from get_raw_signal_split_by_stimuli() function
+    # @param threshold int | Threshold value
     def get_spike_idxs(self, amplitudes_list, threshold = 6, len_of_sig=30):
-        '''
-        For each segment, return indices that contain above threshold amplitudes.
         
-    	Parameters
-    	----------
-    	amplitudes_list: list | Seg2seg amplitudes from get_raw_signal_split_by_stimuli() function.
-        threshold: int | Threshold value.
-        
-        Returns
-    	-------
-    	crossing_indices: dict | Crossing indices for each segment
-        ''' 
         crossing_indices = {k:[] for k in range(0, len(amplitudes_list))}
         middle_idx = 15
         
@@ -309,6 +253,7 @@ class DapsysImporter(MNGImporter):
                 
                 for i in rng: 
                     if list_copy[i]>threshold: 
+                        # We add indices of signal that go above threshold
                         next_spike_crossing = i
                         found = True
                         break
@@ -316,6 +261,7 @@ class DapsysImporter(MNGImporter):
                 if found==False or (next_spike_crossing + middle_idx)>=len(list_copy):
                     break
             
+                # Mathematica's approach from Brian's code, may not be the most user friendly one
                 crossing_indices[k].append(dropped_amount + next_spike_crossing)
                 dropped_amount += next_spike_crossing + middle_idx
                 list_copy = list_copy[next_spike_crossing + middle_idx:]
@@ -338,14 +284,9 @@ class DapsysImporter(MNGImporter):
             
         return crossing_indices
     
+    ## Generate segment - track time points based on dapsys signal
     def extract_segment_idxs_times(self):
-        '''
-        Generate segment - track time points based on dapsys signal. 
         
-        Returns
-        -------
-        tt_dict: dict | Segment - track time points.
-        '''
         j = 0
         tt_dict = {}
         for i, mp in enumerate(self.main_pulses):

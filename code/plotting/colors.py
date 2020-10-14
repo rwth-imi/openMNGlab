@@ -8,6 +8,8 @@ def get_fibre_color(index):
 # Dapsys code
 from matplotlib import pyplot as plt
 import numpy as np
+
+## Generate colors from continuous matplotlib colormaps
 def get_colors(cmap = plt.cm.Greens, length = 100):
     '''
     Generate color list for a particular matplotlib cmap
