@@ -1,8 +1,16 @@
 import numpy as np
 import random as rnd
+from statistics import median
 
 from metrics import median_RMS
 
+## Function to calculate the track correlation as defined by Turnquist et al. in the following paper: https://www.sciencedirect.com/science/article/abs/pii/S0165027016000054
+# @param sweeps List of all sweeps
+# @param center_sweep_idx Index of the sweep that we are currently analysing. Called k in the paper.
+# @param latency Latency for which to calculate the TC, called t in the paper (in sencods)
+# @param radius Radius of sweeps for which the TC should be calculated, called R in the paper.
+# @param window_size The radius of the window for which the signal values are considered during RMS calculation.
+# @return Returns the track correlation, i.e. the maximum RMS for different slopes, as well as the slope for which the maximum was achieved.
 def track_correlation(sweeps, center_sweep_idx, latency, radius = 2, window_size = 0.0015):
 	
 	# build a linear space of float values between the minimum and maximum latency shift, i.e. the slope of the linear approximation of the track
@@ -16,7 +24,13 @@ def track_correlation(sweeps, center_sweep_idx, latency, radius = 2, window_size
 
 ## This function returns an estimate of the track correlation noise.
 # It samples a number of random points from the sweeps (we need to control for bias here!) and calculates the track correlation for each of these points.
-def get_tc_noise_estimate(sweeps, num_samples = 1000):
+# Then, it returns a threshold based on the median of these track correlation scores.
+# @param sweeps List of all sweeps
+# @param num_samples Number of random points in the recording that should be sampled
+# @param minimum_latency Min. latency that a sample must have to the electrical stimulus. This is to avoid having high-scoring tracks following the electrical stimulus artifacts.
+# @param verbose Set this to True if you want detailed information about the TCs as well as the points that have been sampled.
+# @return Tuple of the TCs median and also the list of all TCs that have been calculated
+def get_tc_noise_estimate(sweeps, num_samples = 1000, minimum_latency = 0.02, verbose = False):
 	
 	# get the maximum and minimum time from all the sweeps in the recording
 	t_min = min([sweep.t_start for sweep in sweeps])
@@ -32,10 +46,24 @@ def get_tc_noise_estimate(sweeps, num_samples = 1000):
 	tcs = []
 	for t in sample_times:
 		# iterate through the sweeps until we found the one in which the sampled time t lies
-		while sweeps[sweep_idx].t_end < t:
+		while sweeps[sweep_idx].t_end < t and sweep_idx < len(sweeps) - 1:
 			sweep_idx += 1
 			
+		# calculate the latency at which we look for the track correlation
 		latency = t - sweeps[sweep_idx].t_start 
-		tcs.append(track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = latency))
+		# if the latency is too small, we'll probably record the artefact from the electrical stimulus
+		if latency < minimum_latency:
+			latency += minimum_latency
+		
+		# find the optimal TC and slope, and append the TC to a list of TCs for later median calculation
+		tc, slope = track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = latency)
+		tcs.append(tc)
+		
+		if verbose == True:
+			print("t = " + str(t) + ", lat = " + str(latency) + ", sweep_idx = " + str(sweep_idx) + "\nTC = " + str(tc) + " with slope " + str(slope))
 	
-	return tcs
+	if verbose == True:
+		print("\nFound these TCs:")
+		print(tcs)
+	
+	return median(tcs), tcs
