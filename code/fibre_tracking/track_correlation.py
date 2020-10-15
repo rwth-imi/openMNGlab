@@ -4,6 +4,8 @@ from statistics import median
 
 from metrics import median_RMS
 
+# TODO: currently, the number of values in the linear spaces are hardcoded. We should probably change this in the future, to enable for larger or finer search spaces.
+
 ## Function to calculate the track correlation as defined by Turnquist et al. in the following paper: https://www.sciencedirect.com/science/article/abs/pii/S0165027016000054
 # @param sweeps List of all sweeps
 # @param center_sweep_idx Index of the sweep that we are currently analysing. Called k in the paper.
@@ -16,11 +18,29 @@ def track_correlation(sweeps, center_sweep_idx, latency, radius = 2, window_size
 	# build a linear space of float values between the minimum and maximum latency shift, i.e. the slope of the linear approximation of the track
 	shifts = np.linspace(start = -0.01, stop = 0.01, num = 21)
 	rms = [median_RMS(sweeps, center_sweep_idx = 7, latency_shift = shift, latency = latency, radius = radius, window_size = window_size) for shift in shifts]
-	
 	# get the maximum shift, i.e. the optimal slope
 	max_shift = shifts[np.argmax(rms)]
 	# return it together with the track correlation
 	return max(rms), max_shift
+
+
+
+
+
+
+
+
+def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, radius = 2, window_size = 0.0015):
+	
+	# create a linear space of latencies that we want to search
+	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 21)
+	# calculate the track correlation for each of these latencies
+	tcs_slopes = [track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, radius = radius, window_size = window_size) for lat in latencies]
+	tcs = [x[0] for x in tcs_slopes]
+	# and retrieve the latency for the maximum TC
+	max_tc_latency = latencies[np.argmax(tcs)]
+	# to return it together with its TC
+	return max_tc_latency, max(tcs)
 
 ## This function returns an estimate of the track correlation noise.
 # It samples a number of random points from the sweeps (we need to control for bias here!) and calculates the track correlation for each of these points.
