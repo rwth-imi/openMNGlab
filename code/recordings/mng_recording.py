@@ -6,6 +6,8 @@ from math import floor
 ## A class for microneurography recordings
 class MNGRecording:
 
+	## Sweeps, i.e. the interval from one eletrical stimulus to the next
+	sweeps = None
 	## List of regular electrical stimuli. See signal_artifacts.electrical_stimulus.ElectricalStimulus
 	el_stimuli = None
 	## List of mechanical stimuli. See signal_artifacts.mechanical_stimulus.MechanicalStimulus
@@ -95,4 +97,5 @@ class MNGRecording:
 			# append this sweep to the existing list of sweeps
 			sweeps.append(sweep)
 			
+		self.sweeps = sweeps
 		return sweeps
