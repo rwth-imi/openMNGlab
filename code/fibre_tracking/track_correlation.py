@@ -1,7 +1,7 @@
 import numpy as np
 import random as rnd
 from statistics import median
-
+from math import pi, cos
 from metrics import median_RMS
 
 # TODO: currently, the number of values in the linear spaces are hardcoded. We should probably change this in the future, to enable for larger or finer search spaces.
@@ -13,15 +13,15 @@ from metrics import median_RMS
 # @param radius Radius of sweeps for which the TC should be calculated, called R in the paper.
 # @param window_size The radius of the window for which the signal values are considered during RMS calculation.
 # @return Returns the track correlation, i.e. the maximum RMS for different slopes, as well as the slope for which the maximum was achieved.
-def track_correlation(sweeps, center_sweep_idx, latency, radius = 2, window_size = 0.0015):
+def track_correlation(sweeps, center_sweep_idx, latency, max_slope = 0.005, radius = 2, window_size = 0.0015):
 	
 	# build a linear space of float values between the minimum and maximum latency shift, i.e. the slope of the linear approximation of the track
-	shifts = np.linspace(start = -0.01, stop = 0.01, num = 21)
-	rms = [median_RMS(sweeps, center_sweep_idx = 7, latency_shift = shift, latency = latency, radius = radius, window_size = window_size) for shift in shifts]
+	slopes = np.linspace(start = -max_slope, stop = max_slope, num = 51)
+	rms = [median_RMS(sweeps, center_sweep_idx = center_sweep_idx, latency_slope = slope, latency = latency, radius = radius, window_size = window_size) for slope in slopes]
 	# get the maximum shift, i.e. the optimal slope
-	max_shift = shifts[np.argmax(rms)]
+	max_slope = slopes[np.argmax(rms)]
 	# return it together with the track correlation
-	return max(rms), max_shift
+	return max(rms), max_slope
 
 
 
@@ -30,13 +30,23 @@ def track_correlation(sweeps, center_sweep_idx, latency, radius = 2, window_size
 
 
 
-def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, radius = 2, window_size = 0.0015):
+def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 0.001, radius = 2, slope_penalty_term = None, established_slope = None, window_size = 0.0015):
 	
 	# create a linear space of latencies that we want to search
-	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 21)
+	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 51)
 	# calculate the track correlation for each of these latencies
-	tcs_slopes = [track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, radius = radius, window_size = window_size) for lat in latencies]
-	tcs = [x[0] for x in tcs_slopes]
+	tcs_slopes = [track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies]
+	
+	# If we want to extend a track, we need to use the cosine penalty as defined in the paper
+	if slope_penalty_term == 'cos' and established_slope != None:
+		tcs = [tc * cos(pi / max_shift * (established_slope - slope)) for tc, slope in tcs_slopes]
+	else:
+		tcs = [tc for tc, _ in tcs_slopes]
+	
+	# print("TCs: " + str(tcs))
+	# print("Prev. Slope: " + str(established_slope))
+	# print("Max. new slope: " + str(tcs_slopes[np.argmax(tcs)][1]))
+	
 	# and retrieve the latency for the maximum TC
 	max_tc_latency = latencies[np.argmax(tcs)]
 	# to return it together with its TC
