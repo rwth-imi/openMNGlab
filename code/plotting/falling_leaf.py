@@ -21,11 +21,11 @@ class FallingLeafPlot:
 	# @param plot_raw_signal Whether or not the raw signal from the recording should be plotted beneath the events. This is what makes the plotting slow.
 	def plot(self, regular_stimuli, action_potentials, t_start, num_intervals, ap_tracks = [], post_stimulus_timeframe = float("infinity"), plot_raw_signal = True):
 		# first, select the intervals according to start time and number of intervals
-		regular_stimuli = [stim for stim in regular_stimuli if stim.timepoint > t_start]
-		regular_stimuli = regular_stimuli[0 : num_intervals]
+		disp_regular_stimuli = [stim for stim in regular_stimuli if stim.timepoint > t_start]
+		disp_regular_stimuli = disp_regular_stimuli[0 : num_intervals]
 				
 		# filter the action potentials belonging to these stimuli
-		action_potentials = [ap for ap in action_potentials if ap.prev_stimuli["regular"] in regular_stimuli]
+		action_potentials = [ap for ap in action_potentials if ap.prev_stimuli["regular"] in disp_regular_stimuli]
 				
 		# set up the figure object
 		fig = go.Figure(layout = {
@@ -40,22 +40,22 @@ class FallingLeafPlot:
 			fig.add_trace(
 				go.Scatter(
 					mode = "markers",
-					x = [0] * len(regular_stimuli),
-					y = [stim.timepoint for stim in regular_stimuli],
+					x = [0] * len(disp_regular_stimuli),
+					y = [stim.timepoint for stim in disp_regular_stimuli],
 					marker_color = "Black",
 					marker_symbol = "star",
 					hovertemplate = "%{text}",
-					text = ["time = " + "{:1.4f}".format(stim.timepoint) + "s<br>Index = " + str(idx) for idx, stim in enumerate(regular_stimuli)],
+					text = ["time = " + "{:1.4f}".format(stim.timepoint) + "s<br>Index = " + str(idx) for idx, stim in enumerate(disp_regular_stimuli)],
 					name = "Electrical Stimuli"
 				)
 			)
 			
 			if plot_raw_signal == True:
 				# get the max signal value that must be printed
-				max_signal_value = max([max(stim.interval_raw_signal) for stim in regular_stimuli])
+				max_signal_value = max([max(stim.interval_raw_signal) for stim in disp_regular_stimuli])
 			
 				# print the raw signal for each of the intervals
-				for index, stim in enumerate(regular_stimuli):
+				for index, stim in enumerate(disp_regular_stimuli):
 					raw_signal = stim.interval_raw_signal
 					
 					# cut the raw signal snippets according to the desired timeframe after the stimulus
@@ -65,12 +65,12 @@ class FallingLeafPlot:
 					
 					# check how much space we have for scaling the raw data
 					if index > 0:
-						timediff_prev = stim.timepoint - regular_stimuli[index - 1].timepoint
+						timediff_prev = stim.timepoint - disp_regular_stimuli[index - 1].timepoint
 					else:
 						timediff_prev = 2.0
 						
-					if index < len(regular_stimuli) - 1:
-						timediff_next = regular_stimuli[index + 1].timepoint - stim.timepoint
+					if index < len(disp_regular_stimuli) - 1:
+						timediff_next = disp_regular_stimuli[index + 1].timepoint - stim.timepoint
 					else:
 						timediff_next = 2.0
 						
@@ -79,7 +79,6 @@ class FallingLeafPlot:
 					
 					# scale the signal accordingly
 					signal_scaling_factor = space_margin / max_signal_value
-					raw_signal = [signal_scaling_factor * val + stim.timepoint for val in raw_signal]
 					time_space = np.linspace(0, t_max, len(raw_signal))
 					
 					# plot the signal using linspace for the time
@@ -87,7 +86,7 @@ class FallingLeafPlot:
 						go.Scatter(
 							mode = "lines",
 							x = time_space,
-							y = raw_signal,
+							y = [signal_scaling_factor * val + stim.timepoint for val in raw_signal],
 							line = {
 								"color": 'firebrick', 
 								"width": .5
