@@ -8,8 +8,6 @@ class ActionPotential:
 	onset = None
 	## The offset of this AP (in seconds).
 	offset = None
-	## The implied duration of this AP.
-	duration = None
 	
 	## The raw signal values that have been extracted from the recording.
 	raw_signal = None
@@ -51,7 +49,6 @@ class ActionPotential:
 		# set some fundamental attributes of the AP
 		self.onset = onset
 		self.offset = offset
-		self.duration = (offset - onset)
 		self.raw_signal = raw_signal
 		self.features = dict()
 		self.prev_stimuli = dict()
@@ -81,3 +78,8 @@ class ActionPotential:
 	def print_info(self):
 		print("Found action potential with:")
 		print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
+		
+	## The implied duration of this AP.
+	@property
+	def duration(self):
+		return self.offset - self.onset
