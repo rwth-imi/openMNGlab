@@ -23,13 +23,16 @@ def track_correlation(sweeps, center_sweep_idx, latency, max_slope = 0.005, radi
 	# return it together with the track correlation
 	return max(rms), max_slope
 
-
-
-
-
-
-
-
+## Runs a search for the maximum track correlation around a given latency as defined in the Turnquist paper. TC means track correlation, RMS means Root Mean Square.
+# @param sweeps List of sweeps
+# @param sweep_idx Currently selected sweep on which we want to search the TC maximum
+# @param latency The latency around which we search for the maximum
+# @param max_shift Max. latency shift, i.e., the size of the "search window"
+# @param max_slope Max. slope that is allowed when calculating the TC
+# @param radius Number of sweeps in up- and downward direction to consider when calculating the median RMS/TC
+# @param slope_penalty_term Decides which penalty term should be applied when selecting the next latency. 'cos' keeps the slope change compared to the previous track elements small.
+# @param established_slope Previous approximation of the track's slope to compute the penalty from
+# @param window_size Size of the window for which the RMS is calculated.
 def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 0.001, radius = 2, slope_penalty_term = None, established_slope = None, window_size = 0.0015):
 	
 	# create a linear space of latencies that we want to search
