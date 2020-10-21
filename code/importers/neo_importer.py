@@ -1,5 +1,5 @@
 from typing import List
-from mng_importer import MNGImporter
+from importers.mng_importer import MNGImporter
 from neo.core import AnalogSignal, Segment, SpikeTrain
 from signal_artifacts import ActionPotential, ElectricalStimulus, MechanicalStimulus
 
