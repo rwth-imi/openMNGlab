@@ -2,17 +2,19 @@ from abc import ABC, abstractmethod
 from typing import List
 from signal_artifacts import ActionPotential, ElectricalStimulus
 
+from numpy import ndarray
+
 ## The interface for a general MNG importer.
 class MNGImporter(ABC):
 	
 	## Returns the raw signal values from the recording
 	@abstractmethod
-	def get_raw_signal(self) -> List[float]:
+	def get_raw_signal(self) -> List[ndarray]:
 		pass
 		
 	## Returns the raw signal, but split by the regular electrical stimuli
 	@abstractmethod
-	def get_raw_signal_split_by_stimuli(self) -> List[List[float]]:
+	def get_raw_signal_split_by_stimuli(self) -> List[List[ndarray]]:
 		pass
 		
 	## Returns a list of all action potentials in the recording
