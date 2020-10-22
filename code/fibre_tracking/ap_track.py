@@ -1,4 +1,5 @@
 import numpy as np
+from collections.abc import Iterable
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
@@ -15,7 +16,8 @@ class APTrack(object):
 		# store the latency tuples in a sorted list
 		self._latencies = sorted(latencies, key = lambda latency: latency[0])
 	
-	def from_aps(sweeps, aps):
+	@staticmethod
+	def from_aps(sweeps: Iterable, aps: Iterable):
 		
 		# this list is meant to store the lateny tuples that are required to spawn a new AP track
 		latencies = []

@@ -2,6 +2,7 @@ from signal_artifacts import ActionPotential
 import numpy as np
 from math import ceil
 import matplotlib.pyplot as plt
+from collections.abc import Iterable
 
 ## Encapsulates creating and maintaining templates for action potentials, e.g., for correlation analysis to assign an AP to a fibre.
 class ActionPotentialTemplate:
@@ -22,7 +23,8 @@ class ActionPotentialTemplate:
 	# TODO: make this alignment optional.
 	# TODO: make plotting optional
 	# @param aps List of action potentials from which the template should be created
-	def from_ap_list(aps):
+	@staticmethod
+	def from_ap_list(aps: Iterable):
 		
 		num_aps = len(aps)
 		

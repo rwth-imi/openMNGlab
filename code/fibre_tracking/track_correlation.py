@@ -3,6 +3,7 @@ import random as rnd
 from statistics import median
 from math import pi, cos
 from metrics import median_RMS
+from scipy.signal import argrelextrema
 
 # TODO: currently, the number of values in the linear spaces are hardcoded. We should probably change this in the future, to enable for larger or finer search spaces.
 
@@ -33,19 +34,45 @@ def track_correlation(sweeps, center_sweep_idx, latency, max_slope = 0.005, radi
 # @param slope_penalty_term Decides which penalty term should be applied when selecting the next latency. 'cos' keeps the slope change compared to the previous track elements small.
 # @param established_slope Previous approximation of the track's slope to compute the penalty from
 # @param window_size Size of the window for which the RMS is calculated.
-def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 0.001, radius = 2, slope_penalty_term = None, established_slope = None, window_size = 0.0015):
+def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 0.001, radius = 2, enforce_local_maximum = False, slope_penalty_term = None, established_slope = None, window_size = 0.0015):
 	
 	# create a linear space of latencies that we want to search
 	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 51)
 	# calculate the track correlation for each of these latencies
-	tcs_slopes = [track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies]
+	tcs_slopes = np.array([track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies])
 	
+	# keep only the track correlations where we have a local maximum
+	if enforce_local_maximum == True:
+
+		# THIS BLOCK IS THE CRITERION AS DESCRIBED IN THE PAPER BUT IT DOES ONLY WORSEN THE RESULTS AS WELL.
+		'''
+		qualified_tcs = [min(tc - track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat - 0.003, max_slope = max_slope, radius = radius, window_size = window_size)[0], \
+							tc - track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat + 0.003, max_slope = max_slope, radius = radius, window_size = window_size)[0]) > 0 \
+							for (tc, _), lat in zip(tcs_slopes, latencies)]
+
+		tcs_slopes = tcs_slopes[qualified_tcs]
+		'''
+
+		# THIS BLOCK USES AN AVERAGING FILTER AND RELATIVE MAXIMUM FUNCTION TO KEEP ONLY THOSE TC VALUES THAT ARE LOCAL MAXIMA. HOWEVER, THIS DOES NOT WORK ATM.
+		'''
+		tcs = np.array([tc for tc, _ in tcs_slopes])
+		# define a little averaging filter and convolve with the TCs to get a filtered signal
+		filt_size = 3
+		avg_filter = np.array([1 / filt_size] * filt_size)
+		filt_tcs = np.convolve(tcs, avg_filter)
+		# now, retrieve the local maxima from the filtered TCs
+		max_tcs = argrelextrema(filt_tcs, np.greater)
+		# restrict to only these TC maxima (if there are any, else look everywhere)
+		if not len(max_tcs[0]) == 0:
+			tcs_slopes = tcs_slopes[max_tcs[0]]
+		'''
+
 	# If we want to extend a track, we need to use the cosine penalty as defined in the paper
 	if slope_penalty_term == 'cos' and established_slope != None:
 		tcs = [tc * cos(pi / max_shift * (established_slope - slope)) for tc, slope in tcs_slopes]
 	else:
 		tcs = [tc for tc, _ in tcs_slopes]
-	
+
 	# print("TCs: " + str(tcs))
 	# print("Prev. Slope: " + str(established_slope))
 	# print("Max. new slope: " + str(tcs_slopes[np.argmax(tcs)][1]))
