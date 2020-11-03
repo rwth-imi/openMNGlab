@@ -3,6 +3,9 @@ from collections.abc import Iterable
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
+## An AP track which means that a for number of sweeps 0 to k, we have latencies t_0, ..., t_k that belong to a latency track.
+# A latency track can therefore also be written as a list of entries (i, t_i) where i is the sweep index and t_i the corresponding latency.
+# This is what we are trying to achieve with this class.
 class APTrack(object):
 
 	## this attribute stores the latencies at the individual sweeps
@@ -16,6 +19,9 @@ class APTrack(object):
 		# store the latency tuples in a sorted list
 		self._latencies = sorted(latencies, key = lambda latency: latency[0])
 	
+	## Method to construct an AP track class from some action potentials.
+	# @param sweeps List of sweeps
+	# @param aps List of action potentials
 	@staticmethod
 	def from_aps(sweeps: Iterable, aps: Iterable):
 		
@@ -35,10 +41,20 @@ class APTrack(object):
 		
 		return APTrack(latencies = latencies)
 		
+	## This method is not yet implemented but should be similar to the extend_downwards function.
+	# TODO implement!
 	def extend_upwards(self):
 		pass
 		
 	
+	## Method to extend an existing latency track in downward direction
+	# @param sweeps List of sweeps in the recording
+	# @param num_sweeps For how many sweeps should we extend this track
+	# @param max_shift Maximum latency shift between one sweep i and the next sweep i + 1
+	# @param max_slope Absolute value for the maximum slope that is considered when linearizing the track around the last sweep
+	# @param radius Radius of the "window" from which the latencies for track linearization are selected
+	# @param window_size Window size that is used to calculate the Root Mean Squared signal power
+	# @param slope_penalty_term Penalty term that is used to weight the latencies in the next slope. 'cos' penalty term is the one proposed by Turnquist et al. See also fibre_tracking.track_correlation.search_for_max_tc for more info.
 	def extend_downwards(self, sweeps, num_sweeps = 1, max_shift = 0.003, max_slope = 0.003, radius = 2, window_size = 0.001, slope_penalty_term = 'cos', verbose = False):
 		
 		for i in range(num_sweeps):
