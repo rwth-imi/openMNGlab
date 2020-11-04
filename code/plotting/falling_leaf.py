@@ -19,7 +19,7 @@ class FallingLeafPlot:
 	# @param t_start Start time for plotting the FLP in seconds. E.g. 1000s plots only intervals beyond the 1000s mark.
 	# @param post_stimulus_timeframe Length of the signal that should be plotted after the stimulation event. Should be kept low to increase speed.
 	# @param plot_raw_signal Whether or not the raw signal from the recording should be plotted beneath the events. This is what makes the plotting slow.
-	def plot(self, regular_stimuli, action_potentials, t_start, num_intervals, ap_tracks = [], post_stimulus_timeframe = float("infinity"), plot_raw_signal = True):
+	def plot(self, regular_stimuli, action_potentials, t_start, num_intervals, ap_tracks = [], post_stimulus_timeframe = float("infinity"), plot_raw_signal = False):
 		# first, select the intervals according to start time and number of intervals
 		disp_regular_stimuli = [stim for stim in regular_stimuli if stim.timepoint > t_start]
 		disp_regular_stimuli = disp_regular_stimuli[0 : num_intervals]

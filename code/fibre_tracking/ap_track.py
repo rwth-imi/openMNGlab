@@ -1,5 +1,7 @@
 import numpy as np
 from collections.abc import Iterable
+from recordings import MNGRecording
+from recordings import Sweep
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
@@ -41,12 +43,34 @@ class APTrack(object):
 		
 		return APTrack(latencies = latencies)
 		
+	## TODO implement a method that, for a given track and the recording object, generates a list of Action Potential objects
+	# should return a list of newly generated action potentials
+	def to_aps(self, recording: MNGRecording):
+		pass
+
+	## For each sweep and each latency, the closest AP is searched and assigned as an AP that belongs to this track.
+	# @param sweeps List of sweeps in this recording
+	# @return List of action potentials that potentially belong to this track
+	def get_nearest_existing_aps(self, sweeps: Iterable):
+		
+		actpots = []
+
+		for (sweep_idx, latency) in self._latencies:
+			# get the sweep corresponding to this sweep index
+			cur_sweep = sweeps[sweep_idx]
+			# calculate the absolute distances between the projected latency track point and the APs
+			dists = [abs(latency - ap.features["latency"]) for ap in cur_sweep.action_potentials]
+			# add the closest AP
+			ap_idx = np.argmin(dists)
+			actpots.append(cur_sweep.action_potentials[ap_idx])
+
+		return actpots
+
 	## This method is not yet implemented but should be similar to the extend_downwards function.
 	# TODO implement!
 	def extend_upwards(self):
 		pass
 		
-	
 	## Method to extend an existing latency track in downward direction
 	# @param sweeps List of sweeps in the recording
 	# @param num_sweeps For how many sweeps should we extend this track
@@ -96,6 +120,18 @@ class APTrack(object):
 			
 		self._latencies.insert(lst_idx, (sweep_idx, latency))
 		
+	## Method to merge two AP tracks into a single AP track
+	@staticmethod
+	def merge_tracks(track1, track2):
+		# check if the tracks are intersecting at a certain index
+		common_idcs = set(track1.sweep_idcs) & set(track2.sweep_idcs)
+		if common_idcs:
+			raise ValueError(f"The given tracks share a common sweep index. Therefore, the latency is not clearly defined and the tracks cannot be merged. This affects the indices {common_idcs}.")
+
+		# append the two tracks and return a new AP track with all the latencies (sorting is implicitly done in the constructor!)
+		new_latencies = track1._latencies + track2._latencies
+		return APTrack(latencies = new_latencies)
+
 	## This function handles calls like len(track)
 	def __len__(self):
 		return len(self._latencies)

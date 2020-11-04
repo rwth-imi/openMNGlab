@@ -8,6 +8,8 @@ class MNGRecording:
 
 	## Sweeps, i.e. the interval from one eletrical stimulus to the next
 	sweeps = None
+	## Keep a list of all AP tracks in the recording
+	ap_tracks = None
 	## List of regular electrical stimuli. See signal_artifacts.electrical_stimulus.ElectricalStimulus
 	el_stimuli = None
 	## List of mechanical stimuli. See signal_artifacts.mechanical_stimulus.MechanicalStimulus
