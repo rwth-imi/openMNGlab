@@ -1,7 +1,11 @@
 import numpy as np
 from collections.abc import Iterable
-from recordings import MNGRecording
-from recordings import Sweep
+from pathlib import Path
+import csv
+import os
+import pandas as pd
+
+from recordings import MNGRecording, Sweep
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
@@ -121,6 +125,9 @@ class APTrack(object):
 		self._latencies.insert(lst_idx, (sweep_idx, latency))
 		
 	## Method to merge two AP tracks into a single AP track
+	# Tracks must not be overlapping, i.e. share sweep indices!
+	# @param track1 First track for merging
+	# @param track2 Sencond track for merging
 	@staticmethod
 	def merge_tracks(track1, track2):
 		# check if the tracks are intersecting at a certain index
@@ -132,6 +139,34 @@ class APTrack(object):
 		new_latencies = track1._latencies + track2._latencies
 		return APTrack(latencies = new_latencies)
 
+	## Function to save an AP track to disk. We'll create a csv file that stores the sweep indices and the latencies
+	# @param fpath Path to the file into which the AP track should be written
+	def save_to_csv(self, fpath):
+		# create the directory (if it does not already exist)
+		Path(os.path.basename(fpath)).mkdir(parents = True, exist_ok = True)
+
+		# open file for writing and append!
+		with open(fpath, 'a', newline = '') as file:
+			# create writer and write header
+			writer = csv.writer(file, delimiter = ";")
+			writer.writerow(["Sweep_Idx", "Latency"])
+
+			for (sweep_idx, latency) in self._latencies:
+				writer.writerow([sweep_idx, latency])
+
+		print(f"Successfully saved AP track to {fpath}")
+
+	## Function to load an AP track from a csv file
+	# @param fpath Path to the csv file from which the AP track should be loaded
+	@staticmethod
+	def load_from_csv(fpath):
+		# load the csv as a pandas df
+		df = pd.read_csv(filepath_or_buffer = fpath, delimiter = ";", header = 0)
+		# now, create a list of tuples as required by the constructor
+		latencies = list(df.itertuples(index = False, name = None))
+		# and return the newly created AP track
+		return APTrack(latencies = latencies)
+
 	## This function handles calls like len(track)
 	def __len__(self):
 		return len(self._latencies)
@@ -142,4 +177,4 @@ class APTrack(object):
 		
 	@property
 	def latencies(self):
-		return [x[1] for x in self._latencies] 
+		return [x[1] for x in self._latencies]
