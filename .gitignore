@@ -1,7 +1,10 @@
 /code/.ipynb_checkpoints/
 /code/__pycache__/
+/code/.vscode/
 /docs/
 code/*/__pycache__/
 start_notebook.*
 data/*.csv
 data/*.zip
+data/*.smr
+data/dapsys*

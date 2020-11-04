@@ -8,6 +8,8 @@ import os
 import csv
 import pandas as pd
 import numpy as np
+from pathlib import Path
+
 
 from importers.mng_importer import MNGImporter
 from typing import List
@@ -294,3 +296,41 @@ class DapsysImporter(MNGImporter):
                 tt_dict[i] = self.track_times[j]
                 j += 1
         return tt_dict 
+
+    ## this function fixes the problem with dapsys csv files that use the comma not only as csv-separator but also for decimal numbers
+    # @param in_path Path where the original files are placed
+    # @param out_path Path where the fixed files should be written (filenames are preserved), will be created on demand
+    # @param new_separator New separator character for the CSV file
+    @staticmethod
+    def fix_separator_decimal_issue(in_path, out_path, new_separator = ","):
+
+        # create the output directory if necessary
+        Path(out_path).mkdir(parents = True, exist_ok = True)
+
+        # get a list of the files in the directory and load all of them sequentially
+        for path in os.listdir(in_path):
+            # construct the in and out paths
+            in_path_full = in_path + '\\' + path
+            out_path_full = out_path + '\\' + path
+
+            # open the input and output csv files
+            with open(in_path_full, 'r', newline = '\n') as in_csv_file, open(out_path_full, 'a', newline = '\n') as out_csv_file:
+                csv_reader = csv.reader(in_csv_file, delimiter = ',')
+                csv_writer = csv.writer(out_csv_file, delimiter = new_separator, quoting = csv.QUOTE_NONNUMERIC, escapechar = "\\")
+
+                # enumerate over the rows to replace every second "," with a decimal point
+                for i, row in enumerate(csv_reader):
+                    
+                    out_row = []
+
+                    # for every second value, append the next using a decimal point
+                    for idx in range(0, len(row) - 1, 2):
+                        num = float(f"{row[idx]}.{row[idx + 1]}")
+                        out_row.append(num)
+
+                    # for some files, there is something like a comment that we need to append as well
+                    if len(row) % 2 != 0:
+                        out_row.append(f"{row[len(row) - 1]}")
+
+                    # then, write the new row into the output csv file
+                    csv_writer.writerow(out_row)
