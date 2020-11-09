@@ -14,18 +14,19 @@ class ClusterPlot2D:
 				
 	## Plots the data provided in a pandas dataframe.
 	# @param clustered_data_df A pandas dataframe resulting from clustering, see also fibre_tracking.dbscan_clustering.DBScanClustering
-	def plot(self, clustered_data_df):
+	def plot(self, actpots, cls_idcs):
+		
 		fig = go.Figure(layout = {"width": self.width, "height": self.height})
 		
 		fig.add_trace(
 			go.Scatter(
 				mode = "markers",
-				x = clustered_data_df["Latency"],
-				y = clustered_data_df["Onset"],
-				marker_color = [get_fibre_color(idx) for idx in clustered_data_df["Cluster_Index"]],
-				marker_symbol = clustered_data_df["Channel_Index"],
+				x = [ap.features["latency"] for ap in actpots],
+				y = [ap.onset for ap in actpots],
+				marker_color = [get_fibre_color(lbl) for lbl in cls_idcs],
+				marker_symbol = [ap.channel_index for ap in actpots],
 				hovertemplate = "%{text}",
-				text = ClusterPlot2D.make_hover_labels_from_df(df = clustered_data_df)
+				text = ClusterPlot2D.make_hover_labels(actpots = actpots, cls_idcs = cls_idcs)
 			)
 		)
 		
@@ -40,13 +41,13 @@ class ClusterPlot2D:
 		
 	## Helper function to create plotly hover labels for an AP
 	# param df Input dataframe containing this particular AP
-	def make_hover_labels_from_df(df):
+	def make_hover_labels(actpots, cls_idcs):
 		labels = []
-		for i, row in df.iterrows():
-			lbl = "Latency: " + "{:1.2f}".format(row["Latency"] * 1000) + "ms<br>"
-			lbl += "Energy: " + "{:1.2f}".format(row["Energy"]) + "mV^2<br>"
-			lbl += "Cluster Index: " + "{:1.0f}".format(row["Cluster_Index"]) + "<br>"
-			lbl += "Channel Index: " + "{:1.0f}".format(row["Channel_Index"]) + "<br>"
+		for ap, cl_idx in zip(actpots, cls_idcs):
+			lbl = "Latency: " + "{:1.2f}".format(ap.features["latency"] * 1000) + "ms<br>"
+			lbl += "Energy: " + "{:1.2f}".format(ap.features["energy"]) + "mV^2<br>"
+			lbl += "Cluster Index: " + "{:1.0f}".format(cl_idx) + "<br>"
+			lbl += "Channel Index: " + "{:1.0f}".format(ap.channel_index) + "<br>"
 			
 			labels.append(lbl)
 			
