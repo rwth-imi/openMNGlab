@@ -21,7 +21,7 @@ class ClusterPlot2D:
 			go.Scatter(
 				mode = "markers",
 				x = clustered_data_df["Latency"],
-				y = clustered_data_df["Energy"],
+				y = clustered_data_df["Onset"],
 				marker_color = [get_fibre_color(idx) for idx in clustered_data_df["Cluster_Index"]],
 				marker_symbol = clustered_data_df["Channel_Index"],
 				hovertemplate = "%{text}",
@@ -30,8 +30,8 @@ class ClusterPlot2D:
 		)
 		
 		fig.update_layout(
-			xaxis_title="Distance to previous regular stimulus (s)",
-			yaxis_title="Normalized signal energy (mV^2)"
+			xaxis_title="Response Latency (s)",
+			yaxis_title="Time (s)"
 		)
 		
 		fig.show()

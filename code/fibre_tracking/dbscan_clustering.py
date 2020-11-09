@@ -22,7 +22,7 @@ class DBSCANClustering:
 		features = np.array([[ap.features["latency"], ap.features["energy"]] for ap in actpots])
 		channel_indices = np.array([ap.channel_index for ap in actpots])
 		
-		labels = DBSCAN(eps = eps, min_samples = min_samples, metric = clustering_metrics.time_dist_and_energy, metric_params = {'energy_importance': 0}).fit_predict(features)
+		labels = DBSCAN(eps = eps, min_samples = min_samples, metric = clustering_metrics.latency).fit_predict(features)
 				
 		# if desired, store the fibre prediction in the AP class
 		if save_fibre_prediction == True:
