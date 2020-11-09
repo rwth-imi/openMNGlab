@@ -135,7 +135,7 @@ class FallingLeafPlot:
 						x = [latency for latency in ap_track.latencies],
 						y = [regular_stimuli[sweep_idx].timepoint for sweep_idx in ap_track.sweep_idcs],
 						line = {
-							"color": 'red',
+							"color": ap_track.color,
 							"width": .75
 						},
 						name = "AP Track"

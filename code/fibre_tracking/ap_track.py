@@ -17,6 +17,9 @@ class APTrack(object):
 	## this attribute stores the latencies at the individual sweeps
 	# they should be stored as tuples (k, t) where k is the sweep index and t is the latency at the sweep k
 	_latencies = None
+
+	## stores the color for this AP track
+	color = "red"
 	
 	## Construct an object for an AP track in the recording
 	# @param latencies A list of tuples (sweep_idx, latency) where sweep_idx is the index of the sweep (also called k in the paper) and the latency t (in seconds)
@@ -62,11 +65,15 @@ class APTrack(object):
 		for (sweep_idx, latency) in self._latencies:
 			# get the sweep corresponding to this sweep index
 			cur_sweep = sweeps[sweep_idx]
-			# calculate the absolute distances between the projected latency track point and the APs
-			dists = [abs(latency - ap.features["latency"]) for ap in cur_sweep.action_potentials]
-			# add the closest AP
-			ap_idx = np.argmin(dists)
-			actpots.append(cur_sweep.action_potentials[ap_idx])
+			# check if there is actually an AP in this sweep
+			if cur_sweep.action_potentials:
+				# calculate the absolute distances between the projected latency track point and the APs
+				dists = [abs(latency - ap.features["latency"]) for ap in cur_sweep.action_potentials]
+				# add the closest AP
+				ap_idx = np.argmin(dists)
+				actpots.append(cur_sweep.action_potentials[ap_idx])
+			else:
+				print("There are no APs in sweep nr. " + str(sweep_idx))
 
 		return actpots
 
@@ -85,33 +92,38 @@ class APTrack(object):
 	# @param slope_penalty_term Penalty term that is used to weight the latencies in the next slope. 'cos' penalty term is the one proposed by Turnquist et al. See also fibre_tracking.track_correlation.search_for_max_tc for more info.
 	def extend_downwards(self, sweeps, num_sweeps = 1, max_shift = 0.003, max_slope = 0.003, radius = 2, window_size = 0.001, slope_penalty_term = 'cos', verbose = False):
 		
-		for i in range(num_sweeps):
-			# Get the last R (radius) latencies to fit a line
-			sweep_idcs = self.sweep_idcs
-			latencies = self.latencies
-		
-			# fit a line to the existing sweep indices (depending on the chosen radius) and latencies to get estimates for the line parameters
-			if len(self._latencies) > 1:
-				slope, latency_intercept = np.polyfit(x = sweep_idcs[min(-len(self._latencies), -radius - 1) : ], y = latencies [min(-len(self._latencies), -radius - 1) : ], deg = 1)
-			elif len(self._latencies) == 1:
-				slope = 0
-				latency_intercept = latencies[0]
-			else:
-				raise RuntimeError("Cannot extend an empty track!")
+		try:
+			for i in range(num_sweeps):
+				# Get the last R (radius) latencies to fit a line
+				sweep_idcs = self.sweep_idcs
+				latencies = self.latencies
 			
-			# using these parameters, predict the latency in the very next sweep
-			next_sweep_idx = max(sweep_idcs) + 1
-			pred_latency = slope * next_sweep_idx + latency_intercept
-			
-			# search for the maximum TC in a certain environment around the predicted latency
-			max_tc_latency, tc = search_for_max_tc(sweeps = sweeps, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
-													slope_penalty_term = slope_penalty_term, established_slope = slope, radius = radius, window_size = window_size)
-			
-			self.insert_latency(sweep_idx = next_sweep_idx, latency = max_tc_latency)
-			
-			if verbose == True:
-				print("Added AP to track: sweep " + str(next_sweep_idx) + " , latency " + str(max_tc_latency))
-		
+				# fit a line to the existing sweep indices (depending on the chosen radius) and latencies to get estimates for the line parameters
+				if len(self._latencies) > 1:
+					slope, latency_intercept = np.polyfit(x = sweep_idcs[min(-len(self._latencies), -radius - 1) : ], y = latencies [min(-len(self._latencies), -radius - 1) : ], deg = 1)
+				elif len(self._latencies) == 1:
+					slope = 0
+					latency_intercept = latencies[0]
+				else:
+					raise RuntimeError("Cannot extend an empty track!")
+				
+				# using these parameters, predict the latency in the very next sweep
+				next_sweep_idx = max(sweep_idcs) + 1
+				pred_latency = slope * next_sweep_idx + latency_intercept
+				
+				# search for the maximum TC in a certain environment around the predicted latency
+				max_tc_latency, tc = search_for_max_tc(sweeps = sweeps, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
+														slope_penalty_term = slope_penalty_term, established_slope = slope, radius = radius, window_size = window_size)
+				
+				self.insert_latency(sweep_idx = next_sweep_idx, latency = max_tc_latency)
+				
+				if verbose == True:
+					print("Added AP to track: sweep " + str(next_sweep_idx) + " , latency " + str(max_tc_latency))
+		except ValueError as err:
+			print(err)
+		except err:
+			print(err)
+
 	## Use this function to add latencies to this track!
 	# @param sweep_idx Index of the sweep where you want to add the latency
 	# @param latency The latency itself (in seconds)
