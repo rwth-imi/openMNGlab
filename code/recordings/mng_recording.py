@@ -27,9 +27,24 @@ class MNGRecording:
 	## The end time of this recording
 	t_end = None
 
-	## Constructor for the recorindg
-	def __init__(self):
-		pass
+	## Constructor for the recording
+	# @param el_stimuli List of the electrical stimuli aka main pulses in the recording
+	# @param mech_stimuli List of mechanical stimulation events
+	# @param extra_el_stimuli List of "extra" stimuli bursts as in Roberto's experiment
+	# @param actpots List of action potentials in this recording
+	def __init__(self, raw_signal, el_stimuli, actpots, t_start, t_end, sampling_rate = 20000, mech_stimuli = None, extra_el_stimuli = None):
+		# assign simple attributes about the recording
+		self.t_start, self.t_end = t_start, t_end
+		self.sampling_rate = sampling_rate
+
+		# now, assign the signal and signal artifacts
+		self.raw_signal = raw_signal
+		self.actpots = actpots
+		self.el_stimuli = el_stimuli
+
+		# the optional other kinds of fibre stimulation
+		self.mech_stimuli = mech_stimuli
+		self.ex_el_stimuli = extra_el_stimuli
 		
 	## Construct a recording object from the given importer, using the channel names passed as dictionaries/lists
 	# @param importer Spike/Dapsys importer from which the information should be extracted

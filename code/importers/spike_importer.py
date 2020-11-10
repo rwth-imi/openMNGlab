@@ -1,5 +1,6 @@
+from recordings.mng_recording import MNGRecording
 from importers.mng_importer import MNGImporter
-from typing import List
+from typing import List, Dict
 import pandas as pd
 import numpy as np
 
@@ -38,6 +39,40 @@ class SpikeImporter(MNGImporter):
 		self.signal_channel = signal_channel
 		self.sampling_rate = sampling_rate
 			
+	## TODO add comments for this method
+	def create_recording(self, stimulus_channels: Dict[str, str], ap_channels: List[str], force_threshold = 0.5, max_ap_gap_time = 0.05) -> MNGRecording:
+
+		# extract the regular electrical stimuli from the dataframe
+		if "regular_electrical" in stimulus_channels:
+			el_stimuli = self.get_electrical_stimuli(regular_stimulus_channel = stimulus_channels["regular_electrical"])
+		else:
+			# we need to set a default value here, in case that extra stimuli events are given but no regular stimulation channel was specified
+			el_stimuli = []
+			
+		# same for the force stimuli
+		if "force" in stimulus_channels:
+			mech_stimuli = self.get_mechanical_stimuli(force_channel = stimulus_channels["force"], threshold = force_threshold, max_gap_time = 0.005)
+		else:
+			mech_stimuli = None
+			
+		# and the extra electical ones
+		if "extra_electrical" in stimulus_channels:
+			ex_el_stimuli = self.get_extra_stimuli(extra_stimulus_channel = stimulus_channels["extra_electrical"], regular_el_stimuli = el_stimuli)
+		else:
+			ex_el_stimuli = None
+			
+		# then, get all the action potentials and the raw signal
+		actpots = self.get_action_potentials(max_gap_time = max_ap_gap_time, ap_marker_channels = ap_channels)
+		raw_signal = self.get_raw_signal_split_by_stimuli(el_stimuli = el_stimuli, verbose = False)
+		
+		# finally, some attributes about the recording itself
+		t_start, t_end = self.get_time_range()
+		sampling_rate = self.sampling_rate
+		
+		# create and return an MNG Recording object
+		return MNGRecording(raw_signal = raw_signal, el_stimuli = el_stimuli, actpots = actpots, t_start = t_start, t_end = t_end, \
+			sampling_rate = sampling_rate, mech_stimuli = mech_stimuli, extra_el_stimuli = ex_el_stimuli)
+
 	## Get the minimum and maximum timestamps from this recording
 	def get_time_range(self):
 		return min(self.df[:][self.time_channel].values), max(self.df[:][self.time_channel].values)
