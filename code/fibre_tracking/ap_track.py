@@ -4,6 +4,7 @@ from pathlib import Path
 import csv
 import os
 import pandas as pd
+from tqdm import tqdm
 
 from recordings import MNGRecording, Sweep
 
@@ -93,7 +94,7 @@ class APTrack(object):
 	def extend_downwards(self, sweeps, num_sweeps = 1, max_shift = 0.003, max_slope = 0.003, radius = 2, window_size = 0.001, slope_penalty_term = 'cos', verbose = False):
 		
 		try:
-			for i in range(num_sweeps):
+			for i in tqdm(range(num_sweeps)):
 				# Get the last R (radius) latencies to fit a line
 				sweep_idcs = self.sweep_idcs
 				latencies = self.latencies
@@ -136,6 +137,27 @@ class APTrack(object):
 			
 		self._latencies.insert(lst_idx, (sweep_idx, latency))
 		
+	## Use this fct. to remove latencies from a track, e.g., if some faulty points have been added. Use only sweep_idx OR time parameter, else this will result in an error.
+	# @param sweep_idx Sweep index after which the latencies should be deleted
+	# @param time Timestamp after which latencies should be deleteted. If used, sweeps have also be passed!
+	# @param sweeps List of sweeps, required only if deletion based on time is chosen
+	def remove_behind(self, sweep_idx = None, time = None, sweeps = None):
+		# check arguments for correctness
+		if sweep_idx != None and time != None:
+			raise ValueError("Arguments for track deletion are ambiguous. You should only pass either a sweep index or the time.")
+		if time != None and sweeps == None:
+			raise ValueError("If time is passed as argument for track deletion, you'll also need to pass the list of sweeps.")
+		
+		# if the time based criterion is used, then find the corresponding sweep index
+		if time != None and sweeps != None:
+			sweep_idx = 0
+			# increase index until t_start exceeds the chosen timepoint
+			while sweeps[sweep_idx].t_start < time:
+				sweep_idx += 1
+
+		# now, remove all the latencies behind this sweep index
+		self._latencies = [(idx, latency) for (idx, latency) in self._latencies if idx <= sweep_idx]
+
 	## Method to merge two AP tracks into a single AP track
 	# Tracks must not be overlapping, i.e. share sweep indices!
 	# @param track1 First track for merging
