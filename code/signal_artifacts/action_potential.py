@@ -1,5 +1,8 @@
+from typing import List
+import os, csv
+from pathlib import Path
+from tqdm import tqdm
 import numpy as np
-from termcolor import colored
 
 ## A single action potential (AP) in a recording.
 # \author Fabian Schlebusch, fabian.schlebusch@rwth-aachen.de
@@ -79,6 +82,51 @@ class ActionPotential:
 		print("Found action potential with:")
 		print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
 		
+	## Method for saving a list of APs to a CSV file
+	@staticmethod
+	def save_aps_to_csv(actpots: List, fpath):
+		# create the directory (if it does not already exist)
+		Path(os.path.basename(fpath)).mkdir(parents = True, exist_ok = True)
+
+		# get a list of all features in this list of actpots
+		features = []
+		# iterate over all keys for all action potentials to get an overview over the features
+		for ap in actpots:
+			for key in ap.features.keys():
+				# construct the feature name as we want it in the dict
+				feature_key = "feature_" + key
+				if not feature_key in features:
+					# add the prefix "feature_" s.t. we know what are features upon loading the file later
+					features.append(feature_key)
+
+		with open(fpath, 'w', newline = '\n') as file:
+			# create writer and write the file header
+			csv_writer = csv.writer(file, delimiter = ";", quotechar = "\"")
+			header_fields = ["onset", "offset", "channel_idx"] + features
+			csv_writer.writerow(header_fields)
+
+			# now, write each of the APs into the csv file
+			for ap in tqdm(actpots):
+				# allocate a list where we can put the AP's stuff
+				ap_row = [str(ap.onset), str(ap.offset), str(ap.channel_index)]
+				ap_row.extend([""] * (len(header_fields) - 3))
+
+				# now, write the features
+				for key, value in ap.features.items():
+					# construct the key of this feature in the csv and find the index
+					feature_key = "feature_" + key
+					feature_idx = header_fields.index(feature_key)
+					# then, write the feature value at the index position
+					ap_row[feature_idx] = str(value)
+
+				# finally, write this row to the disk
+				csv_writer.writerow(ap_row)
+
+	## Load the list of APs from the given csv file
+	@staticmethod
+	def load_aps_from_csv(fpath):
+		pass
+
 	## The implied duration of this AP.
 	@property
 	def duration(self):
