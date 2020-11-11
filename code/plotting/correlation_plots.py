@@ -145,7 +145,7 @@ def reaction_plot_threshold(thresh_df):
 def delay_plot_set_active_segment(_, out_act, g, segment_slider_act, mapping, idxs):
     
     with out_act:
-        active_segment = segment_slider_act.value-1
+        active_segment = segment_slider_act.value
         active_segment = mapping[active_segment]
         g.data[active_segment].opacity = 1
 
