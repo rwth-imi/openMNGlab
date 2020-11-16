@@ -1,8 +1,10 @@
-from typing import List
+from typing import List, Iterable
 import os, csv
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
+import re
 
 ## A single action potential (AP) in a recording.
 # \author Fabian Schlebusch, fabian.schlebusch@rwth-aachen.de
@@ -83,6 +85,8 @@ class ActionPotential:
 		print("onset = " + str(self.onset) + "s offset = " + str(self.offset) + "s")
 		
 	## Method for saving a list of APs to a CSV file
+	# @param actpots List of action potentials
+	# @param fpath File path where the APs should be written to
 	@staticmethod
 	def save_aps_to_csv(actpots: List, fpath):
 		# create the directory (if it does not already exist)
@@ -117,15 +121,63 @@ class ActionPotential:
 					feature_key = "feature_" + key
 					feature_idx = header_fields.index(feature_key)
 					# then, write the feature value at the index position
-					ap_row[feature_idx] = str(value)
+					# makeing sure that iterables are separated by commata!
+					if isinstance(value, Iterable) and not isinstance(value, str):
+						ap_row[feature_idx] = "[" + ",".join([str(v) for v in value]) + "]"
+					else:
+						ap_row[feature_idx] = str(value)
 
 				# finally, write this row to the disk
 				csv_writer.writerow(ap_row)
 
 	## Load the list of APs from the given csv file
+	# @param fpath Path to the csv file from which the APs should be loaded
 	@staticmethod
 	def load_aps_from_csv(fpath):
-		pass
+		# read the given file into a dataframe object
+		ap_df = pd.read_csv(filepath_or_buffer = fpath, sep = ";")	
+
+		# we define a regular expression for string representations of lists
+		list_regex = re.compile("(\s)*\[.*\](\s)*")
+
+		# allocate the list of APs
+		aps = []
+
+		# iterate over all the rows
+		for ap_idx, ap_row in tqdm(ap_df.iterrows(), total = len(ap_df.index)):
+			# get the basic information about the AP
+			onset = ap_row["onset"]
+			offset = ap_row["offset"]
+			channel_idx = ap_row["channel_idx"]
+			# TODO get the raw signal
+			raw_signal = None
+			
+			# now, we create the AP object s.t. we can write the features into its feature dict
+			ap = ActionPotential(onset = onset, offset = offset, raw_signal = raw_signal)
+			# also, set the channel index
+			ap.channel_index = channel_idx
+			
+			# iterate over the remaining series items to get the features
+			for key, value in ap_row[3 : ].iteritems():
+				# check if the order of the entries is valid
+				if not key.startswith("feature_"):
+					raise ValueError("The AP file has an invalid format as there are non-feature keys following the basic info.")
+				# if it is indeed valid, we can get the name of the feature
+				feature_name = key[len("feature_") :]
+				# now, we either have a List or some simple value
+				if isinstance(value, str) and list_regex.match(value):
+					# get indices of the start and stop indices of the list
+					start_idx, stop_idx = value.index("["), value.index("]")
+					# now, retrieve the values
+					lst_values = value[start_idx + 1 : stop_idx].split(",")
+					ap.features[feature_name] = value
+				else:
+					ap.features[feature_name] = value
+					
+			# now, append the ap to the list of aps
+			aps.append(ap)
+
+		return aps
 
 	## The implied duration of this AP.
 	@property
