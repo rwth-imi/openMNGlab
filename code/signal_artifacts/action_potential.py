@@ -133,7 +133,7 @@ class ActionPotential:
 	## Load the list of APs from the given csv file
 	# @param fpath Path to the csv file from which the APs should be loaded
 	@staticmethod
-	def load_aps_from_csv(fpath):
+	def load_aps_from_csv(fpath, sort_by_onset = True):
 		# read the given file into a dataframe object
 		ap_df = pd.read_csv(filepath_or_buffer = fpath, sep = ";")	
 
@@ -176,6 +176,10 @@ class ActionPotential:
 					
 			# now, append the ap to the list of aps
 			aps.append(ap)
+
+		# sort if this is desired
+		if sort_by_onset == True:
+			aps = sorted(aps, key = lambda ap: ap.onset)
 
 		return aps
 
