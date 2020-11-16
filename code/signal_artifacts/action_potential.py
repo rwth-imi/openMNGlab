@@ -170,7 +170,7 @@ class ActionPotential:
 					start_idx, stop_idx = value.index("["), value.index("]")
 					# now, retrieve the values
 					lst_values = value[start_idx + 1 : stop_idx].split(",")
-					ap.features[feature_name] = value
+					ap.features[feature_name] = lst_values
 				else:
 					ap.features[feature_name] = value
 					
