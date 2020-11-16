@@ -20,7 +20,7 @@ class ResponseLatency(FeatureExtractor):
 	## Calculate distance of an action potential to prev. eletrical stimulus
 	# @param actpot AP
 	def get_feature_value(self, actpot):
-		prev_stimulus = MNGRecording.get_prev_el_stimulus(actpot, self.regular_el_stimuli)
+		prev_stimulus = MNGRecording.get_prev_stimulus(actpot, self.regular_el_stimuli)
 		
 		if prev_stimulus == None:
 			return -1

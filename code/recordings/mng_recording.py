@@ -1,5 +1,5 @@
 from signal_artifacts import *
-from typing import Dict, List
+from typing import Dict, List, Iterable
 from recordings.sweep import Sweep
 from math import floor
 
@@ -80,17 +80,28 @@ class MNGRecording:
 		
 	## Finds the previous electrical stimulus by going through the sorted list of regular electrical stimuli.
 	# @param actpot The AP
-	def get_prev_el_stimulus(actpot, el_stimuli):
+	# @param stimuli List of stimuli for which to get the previous stimulus. Should be either eletrical, extra electrical or mechanical stimuli!
+	def get_prev_stimulus(actpot, stimuli: Iterable):
+		
 		index = 0
+		len_list = len(stimuli)
 
-		len_list = len(el_stimuli)
-		while(actpot.onset > el_stimuli[index + 1].timepoint):
-			index = index + 1
-			# we don't want to exceed the list length
-			if (index == len_list - 1):
-				break
-			
-		return el_stimuli[index]
+		if all(isinstance(stimulus, ElectricalStimulus) for stimulus in stimuli):
+			# iterate through the list of stimuli to find the one that is before
+			while(actpot.onset > stimuli[index + 1].timepoint):
+				index = index + 1
+				# we don't want to exceed the list length
+				if (index == len_list - 1):
+					break
+		elif all(isinstance(stimulus, ElectricalExtraStimulus) for stimulus in stimuli) or all(isinstance(stimulus, MechanicalStimulus) for stimulus in stimuli):
+			# Here, we need to use the onset property of the stimulus because those do not have a "timepoint"
+			while(actpot.onset > stimuli[index + 1].onset):
+				index = index + 1
+				# we don't want to exceed the list length
+				if (index == len_list - 1):
+					break
+
+		return stimuli[index]
 		
 	## For certain analysis, e.g., for AP tracking using track correlation, we need to split the recording into recordings.Sweep objects.
 	def split_into_sweeps(self):
