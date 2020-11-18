@@ -7,6 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from recordings import MNGRecording, Sweep
+from fibre_tracking import ActionPotentialTemplate
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
@@ -21,6 +22,9 @@ class APTrack(object):
 
 	## stores the color for this AP track
 	color = "red"
+
+	## stores an AP template for this track
+	ap_template = None
 	
 	## Construct an object for an AP track in the recording
 	# @param latencies A list of tuples (sweep_idx, latency) where sweep_idx is the index of the sweep (also called k in the paper) and the latency t (in seconds)
