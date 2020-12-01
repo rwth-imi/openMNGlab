@@ -63,9 +63,10 @@ class APTrack(object):
 	## For each sweep and each latency, the closest AP is searched and assigned as an AP that belongs to this track.
 	# @param sweeps List of sweeps in this recording
 	# @return List of action potentials that potentially belong to this track
-	def get_nearest_existing_aps(self, sweeps: Iterable):
-		
+	def get_nearest_existing_aps(self, threshold=False, sweeps: Iterable):
+
 		actpots = []
+		#print("self:",self._latencies)
 
 		for (sweep_idx, latency) in self._latencies:
 			# get the sweep corresponding to this sweep index
@@ -74,9 +75,13 @@ class APTrack(object):
 			if cur_sweep.action_potentials:
 				# calculate the absolute distances between the projected latency track point and the APs
 				dists = [abs(latency - ap.features["latency"]) for ap in cur_sweep.action_potentials]
-				# add the closest AP
-				ap_idx = np.argmin(dists)
-				actpots.append(cur_sweep.action_potentials[ap_idx])
+				#Check if a valid AP according to the threshold was found
+				if(not threshold or np.min(dists)<threshold):
+					# add the closest AP
+					ap_idx = np.argmin(dists)
+					actpots.append(cur_sweep.action_potentials[ap_idx])
+				else:
+					print("Threshold exceeded for APs in sweep nr. " + str(sweep_idx))
 			else:
 				print("There are no APs in sweep nr. " + str(sweep_idx))
 
