@@ -1,15 +1,12 @@
-from importers import NeoImporter
+from pathlib import Path
+
 import neo
+import neo_importers.neo_spike_importer as spike_importer
 
-# CED Spike2 files 
-fname = "../data/10.6.15_F2.smr"
+file_name = Path("..")/"Files"/"latency_experiment_roberto"/"20_05_13_U1a_pulse_Latenz.smr"
 
-# create a reader
-reader = neo.io.Spike2IO(filename = fname)
-
-# read the block
-bl = reader.read(lazy=False)[0]
-print(bl)
-# access to segments
-for seg in bl.segments:
-    print(seg)
+bl = spike_importer.import_spike_file(file_name, 
+                                      stimuli_event_channels={("DigMark", "!")})
+seg: neo.core.Segment = bl.segments[0]
+for a in seg.data_children:
+    print(a.name, ":", a.annotations)
