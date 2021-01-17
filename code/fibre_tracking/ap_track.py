@@ -25,36 +25,36 @@ class APTrack(object):
 
 	## stores an AP template for this track
 	ap_template = None
-	
+
 	## Construct an object for an AP track in the recording
 	# @param latencies A list of tuples (sweep_idx, latency) where sweep_idx is the index of the sweep (also called k in the paper) and the latency t (in seconds)
 	def __init__(self, latencies):
-		
+
 		# store the latency tuples in a sorted list
 		self._latencies = sorted(latencies, key = lambda latency: latency[0])
-	
+
 	## Method to construct an AP track class from some action potentials.
 	# @param sweeps List of sweeps
 	# @param aps List of action potentials
 	@staticmethod
 	def from_aps(sweeps: Iterable, aps: Iterable):
-		
+
 		# this list is meant to store the lateny tuples that are required to spawn a new AP track
 		latencies = []
-		
+
 		# go over the aps to find their sweep index
 		sweep_idx = 0
 		for ap in aps:
 			# increase the sweep index until we found the sweep in which the AP was triggered
 			while sweep_idx < len(sweeps) - 1 and ap.onset > sweeps[sweep_idx].t_end:
 				sweep_idx += 1
-				
+
 			# calculate latency and store both as tuples
-			latency = ap.onset - sweeps[sweep_idx].t_start + (ap.duration / 2)	
+			latency = ap.onset - sweeps[sweep_idx].t_start + (ap.duration / 2)
 			latencies.append((sweep_idx, latency))
-		
+
 		return APTrack(latencies = latencies)
-		
+
 	## TODO implement a method that, for a given track and the recording object, generates a list of Action Potential objects
 	# should return a list of newly generated action potentials
 	def to_aps(self, recording: MNGRecording):
@@ -63,7 +63,7 @@ class APTrack(object):
 	## For each sweep and each latency, the closest AP is searched and assigned as an AP that belongs to this track.
 	# @param sweeps List of sweeps in this recording
 	# @return List of action potentials that potentially belong to this track
-	def get_nearest_existing_aps(self, threshold=False, sweeps: Iterable):
+	def get_nearest_existing_aps(self, sweeps: Iterable, threshold=False):
 
 		actpots = []
 		#print("self:",self._latencies)
@@ -91,7 +91,7 @@ class APTrack(object):
 	# TODO implement!
 	def extend_upwards(self):
 		pass
-		
+
 	## Method to extend an existing latency track in downward direction
 	# @param sweeps List of sweeps in the recording
 	# @param num_sweeps For how many sweeps should we extend this track
@@ -101,13 +101,13 @@ class APTrack(object):
 	# @param window_size Window size that is used to calculate the Root Mean Squared signal power
 	# @param slope_penalty_term Penalty term that is used to weight the latencies in the next slope. 'cos' penalty term is the one proposed by Turnquist et al. See also fibre_tracking.track_correlation.search_for_max_tc for more info.
 	def extend_downwards(self, sweeps, num_sweeps = 1, max_shift = 0.003, max_slope = 0.003, radius = 2, window_size = 0.001, slope_penalty_term = 'cos', verbose = False):
-		
+
 		try:
 			for i in tqdm(range(num_sweeps)):
 				# Get the last R (radius) latencies to fit a line
 				sweep_idcs = self.sweep_idcs
 				latencies = self.latencies
-			
+
 				# fit a line to the existing sweep indices (depending on the chosen radius) and latencies to get estimates for the line parameters
 				if len(self._latencies) > 1:
 					slope, latency_intercept = np.polyfit(x = sweep_idcs[min(-len(self._latencies), -radius - 1) : ], y = latencies [min(-len(self._latencies), -radius - 1) : ], deg = 1)
@@ -116,17 +116,17 @@ class APTrack(object):
 					latency_intercept = latencies[0]
 				else:
 					raise RuntimeError("Cannot extend an empty track!")
-				
+
 				# using these parameters, predict the latency in the very next sweep
 				next_sweep_idx = max(sweep_idcs) + 1
 				pred_latency = slope * next_sweep_idx + latency_intercept
-				
+
 				# search for the maximum TC in a certain environment around the predicted latency
 				max_tc_latency, tc = search_for_max_tc(sweeps = sweeps, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
 														slope_penalty_term = slope_penalty_term, established_slope = slope, radius = radius, window_size = window_size)
-				
+
 				self.insert_latency(sweep_idx = next_sweep_idx, latency = max_tc_latency)
-				
+
 				if verbose == True:
 					print("Added AP to track: sweep " + str(next_sweep_idx) + " , latency " + str(max_tc_latency))
 		except ValueError as err:
@@ -138,14 +138,14 @@ class APTrack(object):
 	# @param sweep_idx Index of the sweep where you want to add the latency
 	# @param latency The latency itself (in seconds)
 	def insert_latency(self, sweep_idx, latency):
-		
+
 		# go through the existing latencies to insert the new one in the right place
 		lst_idx = 0
 		while lst_idx < len(self._latencies) and sweep_idx > self._latencies[lst_idx][0]:
 			lst_idx += 1
-			
+
 		self._latencies.insert(lst_idx, (sweep_idx, latency))
-		
+
 	## Use this fct. to remove latencies from a track, e.g., if some faulty points have been added. Use only sweep_idx OR time parameter, else this will result in an error.
 	# @param sweep_idx Sweep index after which the latencies should be deleted
 	# @param time Timestamp after which latencies should be deleteted. If used, sweeps have also be passed!
@@ -156,7 +156,7 @@ class APTrack(object):
 			raise ValueError("Arguments for track deletion are ambiguous. You should only pass either a sweep index or the time.")
 		if time != None and sweeps == None:
 			raise ValueError("If time is passed as argument for track deletion, you'll also need to pass the list of sweeps.")
-		
+
 		# if the time based criterion is used, then find the corresponding sweep index
 		if time != None and sweeps != None:
 			sweep_idx = 0
@@ -213,11 +213,11 @@ class APTrack(object):
 	## This function handles calls like len(track)
 	def __len__(self):
 		return len(self._latencies)
-		
+
 	@property
 	def sweep_idcs(self):
 		return [x[0] for x in self._latencies]
-		
+
 	@property
 	def latencies(self):
 		return [x[1] for x in self._latencies]
