@@ -1,12 +1,14 @@
 from pathlib import Path
 from typing import Dict, List, Set, Iterable, Union, Tuple, Callable
-from neo.core import Block, Segment, SpikeTrain, Event, AnalogSignal, Group
+from neo.core import Block, Segment, SpikeTrain, Event, AnalogSignal, Group, Epoch
 from neo.core.dataobject import DataObject
 from neo.io import Spike2IO
 from numpy import ndarray as NPArray
-from enum import Enum
+from quantities import s, Quantity, Hz
 import numpy as np
 import re
+
+from neo_importers.neo_utils import TypeID
 
 #################################################################################################
 ## General information:                                                                        ##
@@ -24,21 +26,13 @@ import re
 ##   stored as annotation with the name "original_name"                                        ##
 #################################################################################################
 
-class TypeID(Enum):
-    RAW_DATA = "rd"
-    ACTION_POTENTIAL = "ap"
-    ELECTRICAL_STIMULUS = "es"
-    ELECTRICAL_EXTRA_STIMULUS = "ex"
-    MECHANICAL_STIMULUS = "ms"
-    CHANNEL = "ch"
-
 ################################## Types ##################################
 # Either channel id or channel name
 ChannelReference = Union[str, int]
 
 SpikeFilterReference = int
 # Either a channel if there is only one filter that is non empty, or a channel, filter tuple
-SpikeChannelReference = Union[ChannelReference, ChannelReference, SpikeFilterReference]
+SpikeChannelReference = Union[ChannelReference, Tuple[ChannelReference, SpikeFilterReference]]
 # Either a set of the references, or a dict mapping channel references on filters
 SpikeChannelReferences = Union[Set[SpikeChannelReference], Dict[ChannelReference, Set[SpikeFilterReference]]]
 
@@ -47,6 +41,19 @@ EventMarker = str
 EventChannelReference = Union[ChannelReference, Tuple[ChannelReference, EventMarker]]
 # Either just a set of references, or a dict matching channel names to matching event markers
 EventChannelReferences = Union[Set[EventChannelReference], Dict[ChannelReference, Set[EventMarker]]]
+
+# A raw channel is just that, a channel
+RawChannelReference = ChannelReference
+# Multiple channel references simply as a set
+RawChannelReferences = Set[ChannelReference]
+
+# Tuple of raw channel and threshold
+MechanicalStimulusReference = Tuple[RawChannelReference, Quantity]
+MechanicalStimulusReferences = Set[MechanicalStimulusReference]
+
+# Tuple of the spike channel matched against the stimulus channel which caused the action potentials
+ActionPotentialReference = Tuple[SpikeChannelReference, EventChannelReference]
+ActionPotentialReferences = Set[ActionPotentialReference]
 
 ############################# General helpers #############################
 
@@ -61,12 +68,12 @@ def _make_names_unique(objects: Iterable[DataObject]) -> None:
             for i, obj in enumerate(obj_list):
                 obj.name = f"{obj.name}_{i}"
 
-def _normalize_event_channel_references(references: EventChannelReferences) -> Set[EventChannelReference]:
+def _normalize_channel_refs(references: EventChannelReferences) -> Set[EventChannelReference]:
     if isinstance(references, set):
         return references
-    result: Set[EventChannelReference] = {}
-    for ch_ref, markers in references.values():
-        result.update([(ch_ref, marker) for marker in markers])
+    result: Set[EventChannelReference] = set()
+    for ch_ref, items in references.items():
+        result.update([(ch_ref, item) for item in items])
     return result
 
 def _channel_by_reference(channels: Iterable[DataObject], ref: ChannelReference) -> DataObject:
@@ -75,6 +82,29 @@ def _channel_by_reference(channels: Iterable[DataObject], ref: ChannelReference)
             or (isinstance(ref, int) and channel.annotations.get("channel_id", None) == ref):
             return channel
     return None
+
+def _spiketrain_by_reference(channels: Iterable[SpikeTrain], ref: SpikeChannelReference) -> SpikeTrain:
+    if isinstance(ref, str) or isinstance(ref, int):
+        return _channel_by_reference(channels, ref)
+    ch_ref, spike_filter = ref
+    for channel in channels:
+        if (isinstance(ch_ref, str) and channel.name == f"{ch_ref}#{spike_filter}") \
+            or (isinstance(ch_ref, int) and channel.annotations.get("channel_id", None) == ch_ref \
+                and channel.annotations.get("spike_filter", None) == spike_filter):
+            return channel
+
+def _event_channel_by_reference(channels: Iterable[Event], ref: EventChannelReference) -> Event:
+    if isinstance(ref, str) or isinstance(ref, int):
+        return _channel_by_reference(channels, ref)
+    ch_ref, marker = ref
+    for channel in channels:
+        if (isinstance(ch_ref, str) and channel.name == f"{ch_ref}#{marker}") \
+            or (isinstance(ch_ref, int) and channel.annotations.get("channel_id", None) == ch_ref \
+                and channel.annotations.get("marker", None) == marker):
+            return channel
+
+def _quantity_concat(a: Quantity, b: Quantity) -> Quantity:
+    return np.concatenate([a, b.rescale(a.units)]) * a.units
 
 ############################# Spiketrains #############################
 
@@ -90,9 +120,9 @@ def _group_spiketrains_by_channel_ref(spiketrains: List[SpikeTrain]) -> Dict[int
         match = id_expr.match(spiketrain.annotations["id"])
         assert match is not None
         ch_id = int(match.group(1))
-        marker_filter = int(match.group(2))
+        spike_filter = int(match.group(2))
         # Annotate the spiketrain with the information which channel it references and what markers are filtered
-        spiketrain.annotate(channel_id=ch_id, marker_filter=marker_filter)
+        spiketrain.annotate(channel_id=ch_id, spike_filter=spike_filter)
         # group this spiketrain to it's corresponding channel
         channel_spiketrains = result.get(ch_id, [])
         channel_spiketrains.append(spiketrain)
@@ -110,7 +140,7 @@ def _make_spiketrain_names_unique_per_channel(spiketrain_channels: List[List[Spi
 # Make different marker filter spiketrain names unique by appending their marker ID to the name
 def _make_spiketrain_names_unique_per_marker(spiketrains: List[SpikeTrain]) -> None:
     for spiketrain in spiketrains:
-        spiketrain.name = f"{spiketrain.name}#{spiketrain.annotations['marker_filter']}"
+        spiketrain.name = f"{spiketrain.name}#{spiketrain.annotations['spike_filter']}"
 
 def _prepare_spiketrains(segment: Segment) -> None:
     # lists of all spiketrains with the same name
@@ -156,12 +186,14 @@ def _filter_event_channel(event_channel: Event, label_filter: Callable[[str], bo
 def _create_filter_channel(segment: Segment, channel_ref: ChannelReference, marker: EventMarker) -> Event:
     channel = _channel_by_reference(segment.events, channel_ref)
     assert channel is not None
+    # very dirty hack
+    search_marker = str(ord(marker))
     # Create new channel by filtering all where the label is the marker
-    new_channel = _filter_event_channel(channel, lambda label: label==marker)
+    new_channel = _filter_event_channel(channel, lambda label: label==search_marker)
     # add the marker to the name to make it unique
     new_channel.name = f"{channel.name}#{marker}"
     # add information about the fork to the newly created channel
-    new_channel.annotate(forked_from=channel.name, marker=marker)
+    new_channel.annotate(forked_from=channel.name, marker=marker, channel_id=channel.annotations["channel_id"])
     # Add the channel to the segment
     segment.events.append(new_channel)
     return new_channel
@@ -171,7 +203,7 @@ def _create_filter_channel(segment: Segment, channel_ref: ChannelReference, mark
 def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences) -> None:
     if stimuli_channels is None:
         return
-    channels = _normalize_event_channel_references(stimuli_channels)
+    channels = _normalize_channel_refs(stimuli_channels)
     stimulus_index = 0
     for ev_ref in channels:
         # Get the referenced channel
@@ -189,11 +221,13 @@ def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences)
         stimulus_index += 1
         channel.annotate(id=channel_id, type_id=type_id)
         # compute intervals
-        # this list will be shorter by 1 then the stimuli list
-        # the reason for this is that there are only intervals between
-        # the events, i.e. neither include the time from t0 to event 1
-        # nor the timeframe from the last event to the end of the experiment
-        intervals = np.diff(channel.times)
+        # this will be annotated onto the datapoints, as there are only time intervals between
+        # two events, the last one does not have a followup even. Therefore the time interval
+        # is infinity
+        # Alternative solution would be to have this intervall be one shorter then the datapoints
+        # and annotate them directly and not via array_annotate
+        intervals: Quantity = np.diff(channel.times)
+        intervals = _quantity_concat(intervals, np.array([float("inf")]) * s)
         channel.array_annotate(intervals=intervals)
 
 ############################# Raw data #############################
@@ -208,6 +242,175 @@ def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> 
         channel_id = f"{type_id}.{index}"
         index += 1
         channel.annotate(id=channel_id, type_id=type_id)
+
+############################# Extra Stimuli #############################
+
+# gets the start:stop indices for each extra stimulus group
+def _group_stimuli(channel: Event, time_threshold: Quantity) -> List[Tuple[int, int]]:
+    result: List[Tuple(int, int)] = []
+    last_ev: Quantity = None
+    start_index: int = 0
+    for i, ev in enumerate(channel.times):
+        if last_ev is not None and ev - last_ev > time_threshold:
+            result.append((start_index, i))
+            start_index = i
+        last_ev = ev
+    # add the last one
+    if start_index < len(channel.times):
+        result.append((start_index, len(channel.times)))
+    return result
+
+def _create_extra_stimuli_channel(from_channel: Event, time_threshold: Quantity) -> Epoch:
+    stimuli: List[Tuple[int, int]] = _group_stimuli(from_channel, time_threshold)
+    #data_points: List[Quantity] = [from_channel.times[start:stop] for start, stop in stimuli]
+    # the label of each timespan is the label of the first event
+    labels = np.array([from_channel.labels[start] for start, _ in stimuli])
+    # the timestamp of each timespan is the timestamp of the first event
+    times: Quantity = np.array([from_channel.times[start] for start, _ in stimuli]) * from_channel.units
+    # the duration is the time difference between the first and last event
+    durations: Quantity = np.array([from_channel.times[stop-1] - from_channel.times[start] for start, stop in stimuli]) * from_channel.units
+    frequencies: Quantity = None
+    # with this deactivate the divide by 0 warning from NP
+    # it just returns infinity
+    with np.errstate(divide="ignore"):
+        # the frequency is the number of pulses by the duration.
+        # FIXME: shouldn't it be the number -1 as the last one marks exactly the end, so we only count the ones in the middle?
+        frequencies = np.array([(stop - start) / durations[i] for i, (start, stop) in enumerate(stimuli)]) / from_channel.units
+    frequencies.units = Hz
+    epoch = Epoch(times=times, durations=durations, labels=labels, units=from_channel.units)
+    epoch.array_annotate(frequencies=frequencies)
+    return epoch
+    
+
+def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelReferences, time_threshold: Quantity = 1*s):
+    # basically the same as _prepare_stimuli
+    if stimuli_channels is None:
+        return
+    channels = _normalize_channel_refs(stimuli_channels)
+    extra_stimulus_index = 0
+    for ev_ref in channels:
+        # Get the referenced channel
+        channel: Event = None
+        if isinstance(ev_ref, tuple):
+            # and if it is a "part" channel, create it first
+            ch_ref, marker = ev_ref
+            channel = _create_filter_channel(segment, ch_ref, marker)
+        else:
+            channel = _channel_by_reference(segment.events, ev_ref)
+        assert channel is not None
+        from_channel = channel.annotations.get("forked_from", channel.name)
+        marker = channel.annotations.get("marker", None)
+    
+        extra_stimuli_channel = _create_extra_stimuli_channel(channel, time_threshold)
+        type_id = TypeID.ELECTRICAL_EXTRA_STIMULUS.value
+        extra_stimuli_channel.name = f"{type_id}: {channel.name}"
+        channel_id = f"{type_id}.{extra_stimulus_index}"
+        extra_stimulus_index += 1
+        extra_stimuli_channel.annotate(id=channel_id, type_id=type_id, from_channel=from_channel)
+        if marker is not None:
+            extra_stimuli_channel.annotate(marker=marker)
+        segment.epochs.append(extra_stimuli_channel)
+
+############################# Mechanical Stimuli #############################
+
+# returns the start:stop tuples for when the amplitude is larger than the signal
+def _find_spikes(channel: AnalogSignal, threshold: Quantity, signal_channel_index: int=0) -> List[Tuple[int, int]]:
+    result: List[Tuple[int, int]] = []
+    start_index: int = None
+    assert channel.shape[1] > signal_channel_index
+    for i, amp_lst in enumerate(channel):
+        amp: Quantity = amp_lst[signal_channel_index]
+        if start_index is None and amp >= threshold:
+            start_index = i
+        elif start_index is not None and amp < threshold:
+            result.append((start_index, i))
+            start_index = None
+    return result
+
+def _channel_index_to_time(channel: AnalogSignal, index: int) -> Quantity:
+    result = channel.t_start + index * channel.sampling_period
+    # ensure unit compatibility
+    result.units = channel.sampling_period.units
+    return result
+
+def _spiketrain_from_raw(channel: AnalogSignal, threshold: Quantity) -> SpikeTrain:
+    assert channel.signal.shape[1] == 1
+    spikes = _find_spikes(channel, threshold)
+    signal = channel.signal.squeeze()
+    times = np.array([_channel_index_to_time(channel, start) for start, _ in spikes]) * channel.sampling_period.units
+    waveforms = np.array([[signal[start:stop]] for start, stop in spikes]) * channel.units
+    name = f"{channel.name}#{threshold}"
+    result = SpikeTrain(name=name, times=times, units=channel.units, t_start=channel.t_start, t_stop=channel.t_stop,
+                        waveforms=waveforms, sampling_rate=channel.sampling_rate, sort=True)
+    result.annotate(from_channel=channel.name, threshold=threshold)
+    return result
+
+def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusReferences, spike_channels: SpikeChannelReferences) -> None:
+    type_id = TypeID.MECHANICAL_STIMULUS.value
+    stimulus_index = 0
+    if from_raw is not None:
+        for channel_ref, threshold in from_raw:
+            # create a new spiketrain from the raw signal
+            raw_channel = _channel_by_reference(segment.analogsignals, channel_ref)
+            new_channel = _spiketrain_from_raw(raw_channel, threshold)
+            # set id
+            channel_id = f"{type_id}.{stimulus_index}"
+            stimulus_index += 1
+            new_channel.annotate(id=channel_id, type_id=type_id)
+            # add channel to segment
+            segment.spiketrains.append(new_channel)
+    if spike_channels is not None:
+        spike_channels = _normalize_channel_refs(spike_channels)
+        for channel_ref in spike_channels:
+            # for already prepared spike channels we have nothing to do but add the id and type_id
+            channel = _spiketrain_by_reference(segment.spiketrains, channel_ref)
+            channel_id = f"{type_id}.{stimulus_index}"
+            stimulus_index += 1
+            channel.annotate(id=channel_id, type_id=type_id)
+            
+############################# Action potentials #############################
+
+# search the last stimuli for each action potential
+def _compute_last_stimuli(ap_channel: SpikeTrain, st_channel: Event) -> Tuple[List[int], Quantity]:
+    result: List[int] = []
+    stimuli_times: List[Quantity] = []
+    last_ev = 0
+    for ap_time in ap_channel.times:
+        ev_idx = -1
+        for i, ev_time in enumerate(st_channel.times[last_ev:]):
+            # we search the first event that was at a later point
+            if ev_time > ap_time:
+                # the last event was the one before
+                ev_idx = i - 1 + last_ev
+                break
+        # as the events are (hopefully) sorted, we can skip what we already passed
+        last_ev = ev_idx + 1
+        assert ev_idx >= 0
+        result.append(ev_idx)
+        stimuli_times.append(st_channel.times[ev_idx])
+    return result, np.array(stimuli_times) * st_channel.units
+            
+
+def _prepare_action_potentials(segment: Segment, channel_refs: ActionPotentialReferences) -> None:
+    if channel_refs is None:
+        return
+    ap_index = 0
+    type_id = TypeID.ACTION_POTENTIAL.value
+    for ap_ref, st_ref in channel_refs:
+        ap_channel: SpikeTrain = _spiketrain_by_reference(segment.spiketrains, ap_ref)
+        st_channel: Event = _event_channel_by_reference(segment.events, st_ref)
+        assert ap_channel is not None
+        assert st_channel is not None
+        # Set the id
+        channel_id = f"{type_id}.{ap_index}"
+        ap_index += 1
+        ap_channel.annotate(type_id=type_id, id=channel_id, stimuli_channel=st_channel.annotations["id"])
+        # compute the stimuli responsible for the AP
+        stimuli_indices, stimuli_times = _compute_last_stimuli(ap_channel, st_channel)
+        stimuli_intervals = ap_channel.times - stimuli_times
+        # store the information
+        ap_channel.array_annotate(stimuli_indices=stimuli_indices, stimuli_response_times=stimuli_intervals)
+        
 
 ############################# Loading #############################
 
@@ -228,6 +431,10 @@ def _prune_segment(segment: Segment) -> None:
 
 def import_spike_file(file_name: Path,
                       stimuli_event_channels: EventChannelReferences = None,
+                      extra_stimuli_event_channels: EventChannelReferences = None,
+                      mechanical_stimuli_from_raw: MechanicalStimulusReferences = None,
+                      mechanical_stimuli_channels: SpikeChannelReferences = None,
+                      action_potential_channels: ActionPotentialReferences=None,
                       raw_channels: Set[ChannelReference] = None) -> Block:
     spikeio = Spike2IO(filename=str(file_name.resolve()))
     blocks = spikeio.read(lazy=False, load_waveforms=True)
@@ -236,5 +443,8 @@ def import_spike_file(file_name: Path,
         _prepare_segment(segment)
         _prepare_raw_data(segment, raw_channels)
         _prepare_stimuli(segment, stimuli_event_channels)
+        _prepare_extra_stimuli(segment, extra_stimuli_event_channels)
+        _prepare_mechanical_stimuli(segment, mechanical_stimuli_from_raw, mechanical_stimuli_channels)
+        _prepare_action_potentials(segment, action_potential_channels)
         _prune_segment(segment)
     return spike_data
