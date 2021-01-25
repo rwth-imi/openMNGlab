@@ -8,7 +8,7 @@ from quantities import s, Quantity, Hz
 import numpy as np
 import re
 
-from neo_importers.neo_utils import TypeID
+from neo_importers.neo_wrapper import TypeID
 
 #################################################################################################
 ## General information:                                                                        ##
@@ -345,6 +345,10 @@ def _spiketrain_from_raw(channel: AnalogSignal, threshold: Quantity) -> SpikeTra
     result.annotate(from_channel=channel.name, threshold=threshold)
     return result
 
+def _get_amplitudes(channel: SpikeTrain) -> Quantity:
+    # there is probably a numpy version of this
+    return np.array([max(wave[0]) for wave in channel.waveforms]) * channel.units
+
 def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusReferences, spike_channels: SpikeChannelReferences) -> None:
     type_id = TypeID.MECHANICAL_STIMULUS.value
     stimulus_index = 0
@@ -357,6 +361,7 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             channel_id = f"{type_id}.{stimulus_index}"
             stimulus_index += 1
             new_channel.annotate(id=channel_id, type_id=type_id)
+            new_channel.array_annotate(amplitudes=_get_amplitudes(new_channel))
             # add channel to segment
             segment.spiketrains.append(new_channel)
     if spike_channels is not None:
@@ -367,6 +372,7 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             channel_id = f"{type_id}.{stimulus_index}"
             stimulus_index += 1
             channel.annotate(id=channel_id, type_id=type_id)
+            channel.array_annotate(amplitudes=_get_amplitudes(channel))
             
 ############################# Action potentials #############################
 
