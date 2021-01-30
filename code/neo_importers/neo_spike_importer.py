@@ -51,10 +51,6 @@ RawChannelReferences = Set[ChannelReference]
 MechanicalStimulusReference = Tuple[RawChannelReference, Quantity]
 MechanicalStimulusReferences = Set[MechanicalStimulusReference]
 
-# Tuple of the spike channel matched against the stimulus channel which caused the action potentials
-ActionPotentialReference = Tuple[SpikeChannelReference, EventChannelReference]
-ActionPotentialReferences = Set[ActionPotentialReference]
-
 ############################# General helpers #############################
 
 def _store_original_names(objects: Iterable[DataObject]) -> None:
@@ -376,47 +372,19 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             
 ############################# Action potentials #############################
 
-# search the last stimuli for each action potential
-def _compute_last_stimuli(ap_channel: SpikeTrain, st_channel: Event) -> Tuple[List[int], Quantity]:
-    result: List[int] = []
-    stimuli_times: List[Quantity] = []
-    last_ev = 0
-    for ap_time in ap_channel.times:
-        ev_idx = -1
-        for i, ev_time in enumerate(st_channel.times[last_ev:]):
-            # we search the first event that was at a later point
-            if ev_time > ap_time:
-                # the last event was the one before
-                ev_idx = i - 1 + last_ev
-                break
-        # as the events are (hopefully) sorted, we can skip what we already passed
-        last_ev = ev_idx + 1
-        assert ev_idx >= 0
-        result.append(ev_idx)
-        stimuli_times.append(st_channel.times[ev_idx])
-    return result, np.array(stimuli_times) * st_channel.units
-            
-
-def _prepare_action_potentials(segment: Segment, channel_refs: ActionPotentialReferences) -> None:
+def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelReferences) -> None:
     if channel_refs is None:
         return
     ap_index = 0
     type_id = TypeID.ACTION_POTENTIAL.value
-    for ap_ref, st_ref in channel_refs:
+    for ap_ref in channel_refs:
         ap_channel: SpikeTrain = _spiketrain_by_reference(segment.spiketrains, ap_ref)
-        st_channel: Event = _event_channel_by_reference(segment.events, st_ref)
         assert ap_channel is not None
-        assert st_channel is not None
         # Set the id
         channel_id = f"{type_id}.{ap_index}"
         ap_index += 1
-        ap_channel.annotate(type_id=type_id, id=channel_id, stimuli_channel=st_channel.annotations["id"])
-        # compute the stimuli responsible for the AP
-        stimuli_indices, stimuli_times = _compute_last_stimuli(ap_channel, st_channel)
-        stimuli_intervals = ap_channel.times - stimuli_times
-        # store the information
-        ap_channel.array_annotate(stimuli_indices=stimuli_indices, stimuli_response_times=stimuli_intervals)
-        
+        ap_channel.annotate(type_id=type_id, id=channel_id)
+
 
 ############################# Loading #############################
 
@@ -440,7 +408,7 @@ def import_spike_file(file_name: Path,
                       extra_stimuli_event_channels: EventChannelReferences = None,
                       mechanical_stimuli_from_raw: MechanicalStimulusReferences = None,
                       mechanical_stimuli_channels: SpikeChannelReferences = None,
-                      action_potential_channels: ActionPotentialReferences=None,
+                      action_potential_channels: SpikeChannelReferences=None,
                       raw_channels: Set[ChannelReference] = None) -> Block:
     spikeio = Spike2IO(filename=str(file_name.resolve()))
     blocks = spikeio.read(lazy=False, load_waveforms=True)

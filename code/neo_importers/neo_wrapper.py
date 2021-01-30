@@ -32,11 +32,6 @@ class ActionPotentialWrapper(ChannelDataWrapper):
         self.time: Quantity = ap_channel.times[ap_index]
         self.raw_signal: Quantity = ap_channel.waveforms[ap_index, 0]
         self.duration: Quantity = len(self.raw_signal) * ap_channel.sampling_period
-        self.stimulus_channel: ChannelWrapper = recording.electrical_stimulus_channels[ap_channel.annotations["stimuli_channel"]]
-        # array annotations are stored as np arrays, so we need to manually convert them to int
-        self.stimulus_index: int = int(ap_channel.array_annotations["stimuli_indices"][ap_index])
-        self.stimulus: ElectricalStimulusWrapper = self.stimulus_channel[self.stimulus_index]
-        self.stimulus_response_time: Quantity = ap_channel.array_annotations["stimuli_response_times"][ap_index]
 
 class ElectricalStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", es_channel: Event, es_index: int):
@@ -96,6 +91,8 @@ class ChannelWrapper:
         return len(self.channel)
     
     def __getitem__(self, key: int) -> Union[ActionPotentialWrapper, List[ActionPotentialWrapper]]:
+        # FIXME: due to performance reasons (as this creates all wrappers at once) this should be rewritten
+        # returning an iterator that crates these instances when requested
         if isinstance(key, slice):
             return [self.wrapper_class(self.recording, self.channel, index) for index in range(*key.indices(len(self)))]
         if not isinstance(key, int):
@@ -116,8 +113,11 @@ class MNGRecording:
             channel_id: ChannelWrapper(self, channel, wrapper_class) for channel_id, channel in channels.items()
         }
 
-    def __init__(self, segment: Segment):
+    def __init__(self, segment: Segment, name: str="UNNAMED", file_name: str=None):
         self.segment: Segment = segment
+
+        self.name: str = name
+        self.file_name: str = file_name
 
         # indexing data for fast access
         self.all_channels: Dict[str, DataObject] = {
