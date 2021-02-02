@@ -56,7 +56,7 @@ class Feature:
     
     def load_data(self, stream: RawIOBase, units: Quantity) -> None:
         # units need to be stored seperately
-        self.data = np.load(stream) * units
+        self.data = np.load(stream, allow_pickle = True) * units
         self.units = units
     
     @staticmethod
