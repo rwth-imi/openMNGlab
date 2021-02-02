@@ -27,7 +27,7 @@ class Feature:
                 units = Quantity(1.) # dimensionless
             data_shape = len(self.channel) if datapoint_shape == 1 \
                     else (len(self.channel), datapoint_shape) if isinstance(datapoint_shape, int) \
-                    else (len(self.channel), *data_shape) # tuple
+                    else (len(self.channel), *datapoint_shape) # tuple
             self.data = np.zeros(data_shape, dtype=data_type) * units
             self.units = units
 
