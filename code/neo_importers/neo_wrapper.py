@@ -32,6 +32,12 @@ class ActionPotentialWrapper(ChannelDataWrapper):
         self.time: Quantity = ap_channel.times[ap_index]
         self.raw_signal: Quantity = ap_channel.waveforms[ap_index, 0]
         self.duration: Quantity = len(self.raw_signal) * ap_channel.sampling_period
+        self.duration = self.duration.simplified
+
+    def __str__(self):
+        return (f"""Action potential:\n"""  + 
+                f"""Starts at {self.time}\n""" + 
+                f"""Duration is {self.duration}\n""")
 
 class ElectricalStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", es_channel: Event, es_index: int):
