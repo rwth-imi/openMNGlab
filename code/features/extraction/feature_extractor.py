@@ -21,6 +21,8 @@ class FeatureExtractor(ABC):
     # The shape, i.e. dimensionality of each datapoint
     # 1 dimensional feature with 2 entries should return a 2
     # a 2 dimensional feature with 2 entries (i.e. 2x2 matrix) should return (2, 2)
+    # should always return the same value for the same channel, as it might get called
+    # multiple times for the same feature
     @abstractmethod
     def feature_shape(self) -> Union[int, tuple]:
         pass
@@ -58,17 +60,24 @@ class FeatureExtractor(ABC):
     # use this to cleanup afterwards or to do last changes to the feature
     def finalize_feature(self, feature: Feature) -> Feature:
         return feature
+    
+    # creates a feature instance. Override this if you want to construct a different class
+    def create_feature_instance(self) -> Feature:
+        shape = self.feature_shape()
+        name = self.feature_name()
+        units = self.feature_units()
+        dtype = self.feature_dtype()
+        annotations = self.feature_annotations()
+        return Feature(name, self.recording, self.current_channel.id, \
+                       units=units, datapoint_shape=shape, \
+                       data_type=dtype, annotations=annotations)
 
-    def create_feature(self, channel_id: str) -> Tuple[str, Feature]:
+    def create_feature(self, channel_id: str) -> Feature:
         self.current_channel = self.recording.action_potential_channels[channel_id]
         try:
             self.prepare_extraction()
+            feature = self.create_feature_instance()
             shape = self.feature_shape()
-            name = self.feature_name()
-            units = self.feature_units()
-            dtype = self.feature_dtype()
-            annotations = self.feature_annotations()
-            feature = Feature(self.recording, channel_id, units=units, datapoint_shape=shape, data_type=dtype, annotations=annotations)
             for action_potential in feature.channel:
                 datapoint = self.compute_feature_datapoint(action_potential)
                 assert datapoint.shape == (() if shape == 1 \
@@ -78,4 +87,4 @@ class FeatureExtractor(ABC):
             feature = self.finalize_feature(feature)
         finally:
             self.current_channel = None
-        return name, feature
+        return feature

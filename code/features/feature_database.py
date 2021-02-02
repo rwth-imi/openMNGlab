@@ -1,5 +1,5 @@
-from typing import Union, Dict, List, Any, Type, Iterable, Tuple
-from features.feature import Feature, deserialize_units, serialize_units
+from typing import Union, Dict, List, Any, Type, Iterable, Tuple, Type, Set
+from features.feature import Feature
 from features.extraction.feature_extractor import FeatureExtractor
 from neo_importers.neo_wrapper import MNGRecording
 from pathlib import Path
@@ -7,11 +7,12 @@ from copy import deepcopy
 import yaml
 
 class FeatureDatabase:
-    def __init__(self, data_directory: Path, recording: MNGRecording):
+    def __init__(self, data_directory: Path, recording: MNGRecording, feature_classes: Set[Type[Feature]] = {Feature}):
         assert not data_directory.is_file()
         data_directory.mkdir(parents=True, exist_ok=True)
         self.recording: MNGRecording = recording
         self.data_directory: Path = data_directory
+        self.class_types = {class_type.__name__: class_type for class_type in feature_classes}
         
         self.channel_features: Dict[str, Dict[str, Feature]] = {}
     
@@ -33,39 +34,28 @@ class FeatureDatabase:
         sub_dict[key[1]] = value
         self.channel_features[key[0]] = sub_dict
     
-    @staticmethod
-    def _get_feature_file_name(ch_name: str, feature_name: str) -> str:
-        return f"{ch_name}.{feature_name}.npy"
+    def _store_features(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        result = {}
+        for ch_name, features in self.channel_features.items():
+            ch_features: Dict[str, Dict[str, Any]] = {}
+            for feature_name, feature in features.items():
+                feature_data = feature.store(self.data_directory)
+                feature_data["class_type"] = feature.__class__.__name__
+                ch_features[feature_name] = feature_data
+            result[ch_name] = ch_features
+        return result
 
-    def __get_database_data(self) -> Dict[str, Any]:
-        result = {
+    def store(self) -> None:
+        database_data = {
             "recording": {
                 "name": self.recording.name
             },
-            "features": {
-                ch_name: [
-                    {
-                        "name": f_name,
-                        "data_file": self._get_feature_file_name(ch_name, f_name),
-                        "units": serialize_units(feature.units),
-                        "annotations": deepcopy(feature.annotations)
-                    } for f_name, feature in features.items()
-                ] for ch_name, features in self.channel_features.items()
-            }
+            "features": self._store_features()
         }
         if self.recording.file_name is not None:
-            result["recording"]["file_name"] = self.recording.file_name
-        return result
-    
-    def store(self) -> None:
-        database_data = self.__get_database_data()
+            database_data["recording"]["file_name"] = self.recording.file_name
         with open(self.data_directory/"db.yml", "w") as fl:
             yaml.dump(database_data, fl)
-        for channel, features in self.channel_features.items():
-            for feature_name, feature in features.items():
-                file_name = self._get_feature_file_name(channel, feature_name)
-                with open(self.data_directory/file_name, "wb") as fl:
-                    feature.store_data(fl)
 
     def load(self) -> None:
         with open(self.data_directory/"db.yml", "r") as fl:
@@ -76,13 +66,11 @@ class FeatureDatabase:
         self.channel_features = {}
         for ch_name, features in database_data["features"].items():
             ch_features = {}
-            for feature_data in features:
-                feature_name = feature_data["name"]
-                feature_file = self.data_directory/feature_data["data_file"]
-                feature_units = deserialize_units(feature_data["units"])
-                feature = Feature(self.recording, ch_name, annotations=feature_data["annotations"])
-                with open(feature_file, "rb") as fl:
-                    feature.load_data(fl, feature_units)
+            for feature_name, feature_data in features.items():
+                feature_class_name = feature_data["class_type"]
+                feature_class_type = self.class_types[feature_class_name]
+                feature = feature_class_type(feature_name, self.recording, ch_name)
+                feature.load(feature_data, self.data_directory)
                 ch_features[feature_name] = feature
             self.channel_features[ch_name] = ch_features
     
@@ -91,12 +79,12 @@ class FeatureDatabase:
             channels = [channels]
         for channel in channels:
             extractor = extractor_class(recording=self.recording, **extractor_args)
-            name, feature = extractor.create_feature(channel)
-            self.add_feature(name, feature)
+            feature = extractor.create_feature(channel)
+            self.add_feature(feature)
     
     def get_feature(self, channel_id: str, feature_name: str) -> Feature:
         return self.channel_features.get(channel_id, {}).get(feature_name)
     
-    def add_feature(self, feature_name: str, feature: Feature) -> None:
+    def add_feature(self, feature: Feature) -> None:
         channel_id = feature.channel.id
-        self[channel_id, feature_name] = feature
+        self[channel_id, feature.name] = feature

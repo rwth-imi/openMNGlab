@@ -4,20 +4,17 @@ from quantities import Quantity
 from io import RawIOBase
 import numpy as np
 from copy import deepcopy
-
-# for loading and storing units as strings
-def serialize_units(units: Quantity) -> str:
-    return str(units.dimensionality)
-
-def deserialize_units(units: str) -> Quantity:
-    return Quantity(1., units=units)
+from pathlib import Path
 
 class Feature:
-    def __init__(self, recording: MNGRecording, channel_id: str,
+    # the first three arguments must always bee name, recording and channel_id
+    # otherwise the polymorphism of feature_database can't deserialize the class
+    def __init__(self, name: str, recording: MNGRecording, channel_id: str,
                  data: Quantity = None, units: Quantity=None,
                  datapoint_shape: Union[int, tuple]=None,
                  data_type: np.dtype=None,
                  annotations: Dict[str, Any]=None):
+        self.name: str = name
         self.recording: MNGRecording = recording
         self.channel: ChannelWrapper = recording.action_potential_channels[channel_id]
         self.annotations: Dict[str, Any] = deepcopy(annotations) if annotations is not None else {}
@@ -47,6 +44,10 @@ class Feature:
         val = value.rescale(self.units)
         if isinstance(key, ActionPotentialWrapper):
             self.data[key.index] = val
+        elif isinstance(key, tuple):
+            # multidimensional access, first get the first dimension (as this can be the AP class)
+            # then get the dimensionality part from it
+            self.data[key[0]][key[1:]] = value
         else:
             self.data[key] = val
     
@@ -57,3 +58,32 @@ class Feature:
         # units need to be stored seperately
         self.data = np.load(stream) * units
         self.units = units
+    
+    @staticmethod
+    def _get_feature_file_name(ch_name: str, feature_name: str) -> str:
+        return f"{ch_name}.{feature_name}.npy"
+    # for loading and storing units as strings
+    @staticmethod
+    def serialize_units(units: Quantity) -> str:
+        return str(units.dimensionality)
+
+    @staticmethod
+    def deserialize_units(units: str) -> Quantity:
+        return Quantity(1., units=units)
+
+    def store(self, data_directory: Path) -> Dict[str, Any]:
+        data_file = self._get_feature_file_name(self.channel.id, self.name)
+        with open(data_directory/data_file, "wb") as fl:
+            self.store_data(fl)
+        return {
+            "annotations": deepcopy(self.annotations),
+            "data_file": data_file,
+            "units": self.serialize_units(self.units)
+        }
+    
+    def load(self, meta: Dict[str, Any], data_directory: Path) -> None:
+        units = self.deserialize_units(meta["units"])
+        data_file = meta["data_file"]
+        with open(data_directory/data_file, "rb") as fl:
+            self.load_data(fl, units)
+        self.annotations = deepcopy(meta["annotations"])

@@ -2,7 +2,7 @@
 /code/__pycache__/
 /code/.vscode/
 /docs/
-code/*/__pycache__/
+code/**/__pycache__/
 start_notebook.*
 data/*.csv
 data/*.zip
