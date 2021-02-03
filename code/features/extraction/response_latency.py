@@ -32,15 +32,23 @@ class ResponseLatencyFeatureExtractor(FeatureExtractor):
 
     def compute_feature_datapoint(self, action_potential: ActionPotentialWrapper) -> Quantity:
         assert self.stimulus_indices is not None
-        stimulus = self.stimulus_channel[self.stimulus_indices[action_potential.index]]
-        return action_potential.time - stimulus.time
+
+        stim_idx = self.stimulus_indices[action_potential.index]
+        # for some APs, there might not be a previous stimulus
+        if stim_idx == -1:
+            return np.nan * s
+        else:
+            stimulus = self.stimulus_channel[stim_idx]
+            return action_potential.time - stimulus.time
     
     # search the last stimuli for each action potential
     def _compute_last_stimuli(self, channel: ChannelWrapper) -> List[int]:
         result: List[int] = []
         last_ev = 0
         for action_potential in self.current_channel:
-            ev_idx = None
+            # use -1 as placeholder if there are no previous events
+            # otherwise, we cannot assign NaN latency for APs without previous stimulation
+            ev_idx = -1
             # Not using enumerate due to performance reasons
             # if the performance is still to low, scrap the wrapper and work on the
             # neo datastructure directly
@@ -51,9 +59,10 @@ class ResponseLatencyFeatureExtractor(FeatureExtractor):
                     # the last event was the one before
                     ev_idx = i - 1
                     break
-            assert ev_idx is not None
-            # as the events are (hopefully) sorted, we can skip what we already passed
-            last_ev = ev_idx + 1
+            # if we found any event, we can assume that all further APs also have a previous event
+            if ev_idx != -1:
+                # as the events are (hopefully) sorted, we can skip what we already passed
+                last_ev = ev_idx + 1
             result.append(ev_idx)
         return result
 

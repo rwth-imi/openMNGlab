@@ -19,15 +19,15 @@ wrapper = MNGRecording(bl.segments[0])
 print(wrapper.all_channels.keys())
 
 db = FeatureDatabase(Path("features"), wrapper)
-db.extract_features("ap.0", ResponseLatencyFeatureExtractor, stimulus_channel="es.0")
-db.extract_features("ap.0", NormalizedSignalEnergyExtractor)
-db.extract_features("ap.0", SpikeCountExtractor, timeframe = 100 * second, num_intervals = 8)
+db.extract_features("ap.0", ResponseLatencyFeatureExtractor, stimulus_channel = "es.0")
+# db.extract_features("ap.0", NormalizedSignalEnergyExtractor)
+# db.extract_features("ap.0", SpikeCountExtractor, timeframe = 100 * second, num_intervals = 8)
 db.store()
 db = FeatureDatabase(Path("features"), wrapper)
 db.load()
 
-feature = db["ap.0", "spike_count"]
+# feature = db["ap.0", "spike_count"]
 # feature = db["ap.0", "normalized_energy"]
-# feature = db["ap.0", "response_latency"]
+feature = db["ap.0", "response_latency"]
 for ap in wrapper.action_potential_channels["ap.0"]:
     print(ap.time, feature[ap])
