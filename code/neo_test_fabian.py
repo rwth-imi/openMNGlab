@@ -3,7 +3,7 @@ from pathlib import Path
 import neo
 import neo_importers.neo_spike_importer as spike_importer
 from neo_importers.neo_wrapper import ActionPotentialWrapper, MNGRecording, ChannelWrapper
-from features import FeatureDatabase, Feature, ResponseLatencyFeatureExtractor, NormalizedSignalEnergyExtractor, SpikeCountExtractor
+from features import FeatureDatabase, Feature, ResponseLatencyFeatureExtractor, NormalizedSignalEnergyExtractor, SpikeCountExtractor, AdaptiveSpikeCountExtractor
 from quantities import second
 
 file_name = Path("..")/".."/"Files"/"11_10_27U2a.smr"
@@ -20,14 +20,16 @@ print(wrapper.all_channels.keys())
 
 db = FeatureDatabase(Path("features"), wrapper)
 db.extract_features("ap.0", ResponseLatencyFeatureExtractor, stimulus_channel = "es.0")
-# db.extract_features("ap.0", NormalizedSignalEnergyExtractor)
-# db.extract_features("ap.0", SpikeCountExtractor, timeframe = 100 * second, num_intervals = 8)
+db.extract_features("ap.0", NormalizedSignalEnergyExtractor)
+db.extract_features("ap.0", SpikeCountExtractor, timeframe = 100 * second, num_intervals = 8)
+db.extract_features("ap.0", AdaptiveSpikeCountExtractor, timeframe = 100 * second, num_intervals = 6)
 db.store()
 db = FeatureDatabase(Path("features"), wrapper)
 db.load()
 
 # feature = db["ap.0", "spike_count"]
 # feature = db["ap.0", "normalized_energy"]
-feature = db["ap.0", "response_latency"]
+# feature = db["ap.0", "response_latency"]
+feature = db["ap.0", "adaptive_spike_count"]
 for ap in wrapper.action_potential_channels["ap.0"]:
     print(ap.time, feature[ap])
