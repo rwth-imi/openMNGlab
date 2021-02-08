@@ -18,10 +18,10 @@ class SpikeCountExtractor(FeatureExtractor):
         return "spike_count"
 
     def feature_dtype(self) -> np.dtype:
-        return np.ndarray
+        return np.float
 
     def feature_shape(self) -> Union[int, tuple]:
-        return (self.num_intervals, )
+        return self.num_intervals
 
     def feature_units(self) -> Quantity:
         return Quantity(1.)
@@ -44,20 +44,8 @@ class SpikeCountExtractor(FeatureExtractor):
 
     ## Here, we collect all APs in a single list s.t. we can compute the spike count later
     def prepare_extraction(self) -> None:
-        # keeps arrays of ap times for each channel
-        all_ap_times = []
-        # 
-        for _, channel in self.recording.action_potential_channels.items():
-            
-            aps = [ap for ap in channel]
-            ap_times = np.zeros(shape = (len(aps), ), dtype = np.float)
-            
-            # write all times for this channel into an array
-            ap: ActionPotentialWrapper
-            for idx, ap in enumerate(aps):
-                ap_times[idx] = ap.time
-
-            all_ap_times.append(ap_times)
+        # get arrays of ap times for each channel
+        all_ap_times = [np.array([ap.time for ap in channel]) for channel in self.recording.action_potential_channels.values()]
 
         # merge
         self.ap_times = np.concatenate(all_ap_times)
