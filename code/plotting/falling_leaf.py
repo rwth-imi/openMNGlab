@@ -142,21 +142,19 @@ class FallingLeafPlot:
 				# otherwise, get info about the APs
 				ap_channel = channel_wrapper.channel
 				ap_indices = np.where((ap_channel.times >= t_start) & (ap_channel.times <= t_max))
-
 				ap_times = ap_channel.times[ap_indices]
 				# calculate durations of APs from their waveforms
 				ap_durations: Quantity = np.array([ap.size for ap in ap_channel.waveforms[ap_indices]]) / ap_channel.sampling_rate
 				ap_durations = ap_durations.magnitude * second
-
+				
 				assert len(ap_times) == len(ap_durations)
 
-				# check if the action potentials are within the display range,
-				# i.e. lie before the end of the interval
 				aps_x = []
 				aps_y = []
 				stim: ElectricalStimulusWrapper
 				for stim in el_stimuli:
-					# select aps in display range
+					# check if the action potentials are within the display range,
+					# i.e. lie before the end of the interval
 					aps_in_display_range = (ap_times >= stim.time) & (ap_times <= stim.time + min(stim.interval, post_stimulus_timeframe))
 					# calculate their x- and y-coordinates
 					start_times = ap_times[aps_in_display_range] - stim.time
@@ -165,7 +163,9 @@ class FallingLeafPlot:
 					for t_start, t_stop in zip(start_times, stop_times):
 						aps_x += [t_start, t_stop]
 					aps_y += [stim.time] * 2 * sum(aps_in_display_range)
+					
 					assert len(aps_x) == len(aps_y)
+				
 				# plot the APs using these coordinates
 				fig.add_trace(
 					go.Scatter(
@@ -174,12 +174,15 @@ class FallingLeafPlot:
 						y = aps_y,
 						marker_symbol = ["triangle-nw", "triangle-ne"] * ceil(len(aps_x) / 2),
 						marker_size = 7,
-						marker_color = "black",
+						# marker_color = "black",
 						hovertemplate = "%{text}",
 						text = ["Latency: " + "{:1.4f}".format(latency) for latency in aps_x],
-						showlegend = False
+						name = channel_name,
+						showlegend = True
 					)
 				)
+		
+		# TODO AP Tracks need to be plotted as soon as they're migrated to NEO
 		'''
 			# plot the AP tracks
 			for ap_track in ap_tracks:
