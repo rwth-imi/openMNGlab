@@ -32,7 +32,7 @@ class ActionPotentialWrapper(ChannelDataWrapper):
         self.time: Quantity = ap_channel.times[ap_index]
         self.raw_signal: Quantity = ap_channel.waveforms[ap_index, 0]
         self.duration: Quantity = len(self.raw_signal) * ap_channel.sampling_period
-        self.duration = self.duration.simplified
+        self.duration = self.duration.rescale("ms")
 
     def __str__(self):
         return (f"""Action potential:\n"""  + 
@@ -44,6 +44,11 @@ class ElectricalStimulusWrapper(ChannelDataWrapper):
         super().__init__(recording, es_channel, es_index)
         self.time: Quantity = es_channel.times[es_index]
         self.interval: Quantity = es_channel.array_annotations["intervals"][es_index]
+
+    def __str__(self):
+        return (f"""Electrical stimulus:\n"""  + 
+                f"""Starts at {self.time}\n""" + 
+                f"""Interval length is {self.interval}\n""")
 
 class ElectricalExtraStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", ex_channel: Epoch, ex_index: int):
