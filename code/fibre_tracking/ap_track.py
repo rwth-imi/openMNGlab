@@ -1,12 +1,17 @@
-import numpy as np
-from collections.abc import Iterable
+from neo.core.analogsignal import AnalogSignal
+from quantities.quantity import Quantity
+from neo_importers.neo_wrapper import ActionPotentialWrapper, ElectricalStimulusWrapper
+from typing import Tuple, List, Iterable
 from pathlib import Path
 import csv
 import os
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
+from quantities import ms, second
+import traceback
 
-from recordings import MNGRecording, Sweep
+from recordings import MNGRecording
 from fibre_tracking import ActionPotentialTemplate
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
@@ -18,18 +23,20 @@ class APTrack(object):
 
 	## this attribute stores the latencies at the individual sweeps
 	# they should be stored as tuples (k, t) where k is the sweep index and t is the latency at the sweep k
-	_latencies = None
+	_latencies: List[Tuple[int, int]] = None
 
 	## stores the color for this AP track
-	color = "red"
+	_display_color: str = "red"
+
+	## name of this track
+	_name: str = "AP Track"
 
 	## stores an AP template for this track
-	ap_template = None
-
+	_ap_template: ActionPotentialTemplate = None
+	
 	## Construct an object for an AP track in the recording
 	# @param latencies A list of tuples (sweep_idx, latency) where sweep_idx is the index of the sweep (also called k in the paper) and the latency t (in seconds)
-	def __init__(self, latencies):
-
+	def __init__(self, latencies: List[Tuple[int, int]]):
 		# store the latency tuples in a sorted list
 		self._latencies = sorted(latencies, key = lambda latency: latency[0])
 
@@ -37,22 +44,23 @@ class APTrack(object):
 	# @param sweeps List of sweeps
 	# @param aps List of action potentials
 	@staticmethod
-	def from_aps(sweeps: Iterable, aps: Iterable):
-
+	def from_aps(el_stimuli: Iterable[ElectricalStimulusWrapper], aps: Iterable[ActionPotentialWrapper]):
+		
 		# this list is meant to store the lateny tuples that are required to spawn a new AP track
 		latencies = []
 
 		# go over the aps to find their sweep index
-		sweep_idx = 0
+		stim_idx = 0
+		ap: ActionPotentialWrapper
 		for ap in aps:
 			# increase the sweep index until we found the sweep in which the AP was triggered
-			while sweep_idx < len(sweeps) - 1 and ap.onset > sweeps[sweep_idx].t_end:
-				sweep_idx += 1
-
+			while stim_idx < len(el_stimuli) - 1 and ap.time > el_stimuli[stim_idx].sweep_endpoint:
+				stim_idx += 1
+				
 			# calculate latency and store both as tuples
-			latency = ap.onset - sweeps[sweep_idx].t_start + (ap.duration / 2)
-			latencies.append((sweep_idx, latency))
-
+			latency = ap.time - el_stimuli[stim_idx].time + (ap.duration / 2)
+			latencies.append((stim_idx, latency))
+		
 		return APTrack(latencies = latencies)
 
 	## TODO implement a method that, for a given track and the recording object, generates a list of Action Potential objects
@@ -63,27 +71,37 @@ class APTrack(object):
 	## For each sweep and each latency, the closest AP is searched and assigned as an AP that belongs to this track.
 	# @param sweeps List of sweeps in this recording
 	# @return List of action potentials that potentially belong to this track
-	def get_nearest_existing_aps(self, sweeps: Iterable, threshold=False):
+	def get_nearest_existing_aps(self, el_stimuli: Iterable[ElectricalStimulusWrapper], action_potentials: Iterable[ActionPotentialWrapper], dist_threshold = 0.05):
 
+		# TODO check if this should not rather return a neo channel object containing the times
+		# this would fit better into our new data structure
 		actpots = []
-		#print("self:",self._latencies)
+		ap_idx = 0
 
 		for (sweep_idx, latency) in self._latencies:
 			# get the sweep corresponding to this sweep index
-			cur_sweep = sweeps[sweep_idx]
-			# check if there is actually an AP in this sweep
-			if cur_sweep.action_potentials:
-				# calculate the absolute distances between the projected latency track point and the APs
-				dists = [abs(latency - ap.features["latency"]) for ap in cur_sweep.action_potentials]
-				#Check if a valid AP according to the threshold was found
-				if(not threshold or np.min(dists)<threshold):
-					# add the closest AP
-					ap_idx = np.argmin(dists)
-					actpots.append(cur_sweep.action_potentials[ap_idx])
-				else:
-					print("Threshold exceeded for APs in sweep nr. " + str(sweep_idx))
-			else:
-				print("There are no APs in sweep nr. " + str(sweep_idx))
+			el_stimulus: ElectricalStimulusWrapper = el_stimuli[sweep_idx]
+			# go through the APs until we found one that is behind the current stimulus
+			while action_potentials[ap_idx].time < el_stimulus.time:
+				ap_idx += 1
+
+			assert action_potentials[ap_idx].time < el_stimulus.sweep_endpoint
+			
+			# go through APs to find all APs which belong to this sweep
+			last_ap_in_sweep_idx = ap_idx
+			while action_potentials[last_ap_in_sweep_idx].time <= el_stimulus.sweep_endpoint:
+				last_ap_in_sweep_idx += 1
+			aps_in_sweep: Iterable[ActionPotentialWrapper] = action_potentials[ap_idx : last_ap_in_sweep_idx]
+
+			assert len(aps_in_sweep) > 0
+
+			# calculate the absolute distances between the projected latency track point and the APs
+			dists = [abs(latency - (ap.time - el_stimulus.time)) for ap in aps_in_sweep]
+			#Check if a valid AP according to the threshold was found
+			if np.min(dists) < dist_threshold:
+				# add the closest AP
+				min_dist_ap_idx = np.argmin(dists)
+				actpots.append(action_potentials[min_dist_ap_idx])
 
 		return actpots
 
@@ -100,8 +118,9 @@ class APTrack(object):
 	# @param radius Radius of the "window" from which the latencies for track linearization are selected
 	# @param window_size Window size that is used to calculate the Root Mean Squared signal power
 	# @param slope_penalty_term Penalty term that is used to weight the latencies in the next slope. 'cos' penalty term is the one proposed by Turnquist et al. See also fibre_tracking.track_correlation.search_for_max_tc for more info.
-	def extend_downwards(self, sweeps, num_sweeps = 1, max_shift = 0.003, max_slope = 0.003, radius = 2, window_size = 0.001, slope_penalty_term = 'cos', verbose = False):
-
+	def extend_downwards(self, raw_signal: AnalogSignal, el_stimuli: Iterable[ElectricalStimulusWrapper], num_sweeps: int = 1, max_shift: Quantity = 0.003 * second, \
+		 max_slope: Quantity = 0.003 * second, radius: int = 2, window_size: Quantity = 1 * ms, slope_penalty_term: str = 'cos', verbose = False):
+		
 		try:
 			for i in tqdm(range(num_sweeps)):
 				# Get the last R (radius) latencies to fit a line
@@ -110,7 +129,8 @@ class APTrack(object):
 
 				# fit a line to the existing sweep indices (depending on the chosen radius) and latencies to get estimates for the line parameters
 				if len(self._latencies) > 1:
-					slope, latency_intercept = np.polyfit(x = sweep_idcs[min(-len(self._latencies), -radius - 1) : ], y = latencies [min(-len(self._latencies), -radius - 1) : ], deg = 1)
+					slope, latency_intercept = np.polyfit(x = sweep_idcs[min(-len(self._latencies), -radius - 1) : ], \
+						y = latencies [min(-len(self._latencies), -radius - 1) : ], deg = 1)
 				elif len(self._latencies) == 1:
 					slope = 0
 					latency_intercept = latencies[0]
@@ -119,20 +139,21 @@ class APTrack(object):
 
 				# using these parameters, predict the latency in the very next sweep
 				next_sweep_idx = max(sweep_idcs) + 1
-				pred_latency = slope * next_sweep_idx + latency_intercept
+				pred_latency = Quantity(slope * next_sweep_idx + latency_intercept, "s")
+				
+				print(pred_latency)
 
 				# search for the maximum TC in a certain environment around the predicted latency
-				max_tc_latency, tc = search_for_max_tc(sweeps = sweeps, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
+				max_tc_latency, tc = search_for_max_tc(raw_signal = raw_signal, el_stimuli = el_stimuli, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
 														slope_penalty_term = slope_penalty_term, established_slope = slope, radius = radius, window_size = window_size)
 
 				self.insert_latency(sweep_idx = next_sweep_idx, latency = max_tc_latency)
 
 				if verbose == True:
 					print("Added AP to track: sweep " + str(next_sweep_idx) + " , latency " + str(max_tc_latency))
-		except ValueError as err:
+		except Exception as err:
 			print(err)
-		except err:
-			print(err)
+			print(traceback.format_exc())
 
 	## Use this function to add latencies to this track!
 	# @param sweep_idx Index of the sweep where you want to add the latency
@@ -150,18 +171,18 @@ class APTrack(object):
 	# @param sweep_idx Sweep index after which the latencies should be deleted
 	# @param time Timestamp after which latencies should be deleteted. If used, sweeps have also be passed!
 	# @param sweeps List of sweeps, required only if deletion based on time is chosen
-	def remove_behind(self, sweep_idx = None, time = None, sweeps = None):
+	def remove_behind(self, sweep_idx = None, time = None, el_stimuli: List[ElectricalStimulusWrapper] = None):
 		# check arguments for correctness
 		if sweep_idx != None and time != None:
 			raise ValueError("Arguments for track deletion are ambiguous. You should only pass either a sweep index or the time.")
-		if time != None and sweeps == None:
+		if time != None and el_stimuli == None:
 			raise ValueError("If time is passed as argument for track deletion, you'll also need to pass the list of sweeps.")
 
 		# if the time based criterion is used, then find the corresponding sweep index
-		if time != None and sweeps != None:
+		if time != None and el_stimuli != None:
 			sweep_idx = 0
 			# increase index until t_start exceeds the chosen timepoint
-			while sweeps[sweep_idx].t_start < time:
+			while el_stimuli[sweep_idx].time < time:
 				sweep_idx += 1
 
 		# now, remove all the latencies behind this sweep index
@@ -221,3 +242,19 @@ class APTrack(object):
 	@property
 	def latencies(self):
 		return [x[1] for x in self._latencies]
+
+	@property
+	def ap_template(self):
+		return self._ap_template
+
+	@property
+	def color(self):
+		return self._display_color
+
+	@property
+	def name(self):
+		return self._name
+
+	def __str__(self):
+		return (f"""AP Track with {len(self)} latencies:\n""" + 
+				f"""Starts at sweep {self.sweep_idcs[0]} with latency {self.latencies[1]}.""")

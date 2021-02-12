@@ -1,9 +1,15 @@
+from neo.core.analogsignal import AnalogSignal
+from quantities.quantity import Quantity
+from quantities import second
+from neo_importers.neo_wrapper import ElectricalStimulusWrapper
+from typing import Iterable
 import numpy as np
 import random as rnd
 from statistics import median
 from math import pi, cos
 from metrics import median_RMS
 from scipy.signal import argrelextrema
+from quantities import ms
 
 # TODO: currently, the number of values in the linear spaces are hardcoded. We should probably change this in the future, to enable for larger or finer search spaces.
 
@@ -14,11 +20,12 @@ from scipy.signal import argrelextrema
 # @param radius Radius of sweeps for which the TC should be calculated, called R in the paper.
 # @param window_size The radius of the window for which the signal values are considered during RMS calculation.
 # @return Returns the track correlation, i.e. the maximum RMS for different slopes, as well as the slope for which the maximum was achieved.
-def track_correlation(sweeps, center_sweep_idx, latency, max_slope = 0.005, radius = 2, window_size = 0.0015):
+def track_correlation(raw_signal: AnalogSignal, el_stimuli: Iterable[ElectricalStimulusWrapper], center_sweep_idx: int, latency: Quantity, max_slope: Quantity = 0.005 * second, \
+	radius: int = 2, window_size = 2 * ms):
 	
 	# build a linear space of float values between the minimum and maximum latency shift, i.e. the slope of the linear approximation of the track
 	slopes = np.linspace(start = -max_slope, stop = max_slope, num = 51)
-	rms = [median_RMS(sweeps, center_sweep_idx = center_sweep_idx, latency_slope = slope, latency = latency, radius = radius, window_size = window_size) for slope in slopes]
+	rms = [median_RMS(raw_signal = raw_signal, el_stimuli = el_stimuli, center_stim_idx = center_sweep_idx, latency_slope = slope, latency = latency, radius = radius, window_size = window_size) for slope in slopes]
 	# get the maximum shift, i.e. the optimal slope
 	max_slope = slopes[np.argmax(rms)]
 	# return it together with the track correlation
@@ -34,12 +41,14 @@ def track_correlation(sweeps, center_sweep_idx, latency, max_slope = 0.005, radi
 # @param slope_penalty_term Decides which penalty term should be applied when selecting the next latency. 'cos' keeps the slope change compared to the previous track elements small.
 # @param established_slope Previous approximation of the track's slope to compute the penalty from
 # @param window_size Size of the window for which the RMS is calculated.
-def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 0.001, radius = 2, enforce_local_maximum = False, slope_penalty_term = None, established_slope = None, window_size = 0.0015):
+def search_for_max_tc(raw_signal: AnalogSignal, el_stimuli: Iterable[ElectricalStimulusWrapper], sweep_idx: int, latency: Quantity, max_shift: Quantity = 0.01 * second, \
+	max_slope: Quantity = 0.001 * second, radius: int = 2, enforce_local_maximum: bool = False, slope_penalty_term: 'str' = None, \
+		established_slope: Quantity = None, window_size: Quantity = 2 * ms):
 	
 	# create a linear space of latencies that we want to search
 	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 51)
 	# calculate the track correlation for each of these latencies
-	tcs_slopes = np.array([track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies])
+	tcs_slopes = np.array([track_correlation(raw_signal, el_stimuli, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies])
 	
 	# keep only the track correlations where we have a local maximum
 	if enforce_local_maximum == True:
@@ -90,11 +99,11 @@ def search_for_max_tc(sweeps, sweep_idx, latency, max_shift = 0.01, max_slope = 
 # @param minimum_latency Min. latency that a sample must have to the electrical stimulus. This is to avoid having high-scoring tracks following the electrical stimulus artifacts.
 # @param verbose Set this to True if you want detailed information about the TCs as well as the points that have been sampled.
 # @return Tuple of the TCs median and also the list of all TCs that have been calculated
-def get_tc_noise_estimate(sweeps, num_samples = 1000, minimum_latency = 0.02, verbose = False):
+def get_tc_noise_estimate(el_stimuli: Iterable[ElectricalStimulusWrapper], num_samples: int = 1000, minimum_latency: float = 20 * ms, verbose = False):
 	
 	# get the maximum and minimum time from all the sweeps in the recording
-	t_min = min([sweep.t_start for sweep in sweeps])
-	t_max = max([sweep.t_end for sweep in sweeps])
+	t_min = min([sweep.t_start for sweep in el_stimuli])
+	t_max = max([sweep.t_end for sweep in el_stimuli])
 	
 	# get num_samples random timestamps from where to sample the TC
 	# sort them in ascending order s.t. we don't have to iterate over the sweeps multiple times
@@ -106,17 +115,17 @@ def get_tc_noise_estimate(sweeps, num_samples = 1000, minimum_latency = 0.02, ve
 	tcs = []
 	for t in sample_times:
 		# iterate through the sweeps until we found the one in which the sampled time t lies
-		while sweeps[sweep_idx].t_end < t and sweep_idx < len(sweeps) - 1:
+		while el_stimuli[sweep_idx].t_end < t and sweep_idx < len(el_stimuli) - 1:
 			sweep_idx += 1
 			
 		# calculate the latency at which we look for the track correlation
-		latency = t - sweeps[sweep_idx].t_start 
+		latency = t - el_stimuli[sweep_idx].t_start 
 		# if the latency is too small, we'll probably record the artefact from the electrical stimulus
 		if latency < minimum_latency:
 			latency += minimum_latency
 		
 		# find the optimal TC and slope, and append the TC to a list of TCs for later median calculation
-		tc, slope = track_correlation(sweeps, center_sweep_idx = sweep_idx, latency = latency)
+		tc, slope = track_correlation(el_stimuli, center_sweep_idx = sweep_idx, latency = latency)
 		tcs.append(tc)
 		
 		if verbose == True:

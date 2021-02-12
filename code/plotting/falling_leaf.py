@@ -9,6 +9,7 @@ from math import floor, ceil
 from quantities.quantity import Quantity
 from plotting import get_fibre_color
 from neo_importers.neo_wrapper import ChannelWrapper, ElectricalStimulusWrapper, ActionPotentialWrapper, MNGRecording
+from fibre_tracking import APTrack
 from features import FeatureDatabase
 from neo.core import AnalogSignal
 from quantities import second
@@ -35,13 +36,14 @@ class FallingLeafPlot:
 			post_stimulus_timeframe: float = float("infinity") * second, plot_raw_signal: bool = False):
 		
 		# first, select the intervals according to start time and number of intervals
-		el_stimuli = [st for st in self.recording.electrical_stimulus_channels[el_stimuli_channel] if st.time > t_start]
+		el_stimuli = list(self.recording.electrical_stimulus_channels[el_stimuli_channel]) 
 		el_stimuli = sorted(el_stimuli, key = lambda st: st.time)
-		el_stimuli = np.array(el_stimuli[0 : num_intervals])
-				
+		disp_el_stimuli = [st for st in el_stimuli if st.time > t_start]
+		disp_el_stimuli = np.array(disp_el_stimuli[0 : num_intervals])
+
 		# calculate the max. time that we need to display
-		last_stimulus_idx = np.argmax([st.time for st in el_stimuli])
-		t_max = el_stimuli[last_stimulus_idx].time + el_stimuli[last_stimulus_idx].interval
+		last_stimulus_idx = np.argmax([st.time for st in disp_el_stimuli])
+		t_max = disp_el_stimuli[last_stimulus_idx].time + disp_el_stimuli[last_stimulus_idx].interval
 
 		# set up the figure object
 		fig = go.Figure(layout = {
@@ -56,12 +58,12 @@ class FallingLeafPlot:
 			fig.add_trace(
 				go.Scattergl(
 					mode = "markers",
-					x = np.zeros(len(el_stimuli)),
-					y = np.array([stim.time for stim in el_stimuli]),
+					x = np.zeros(len(disp_el_stimuli)),
+					y = np.array([stim.time for stim in disp_el_stimuli]),
 					marker_color = "Black",
 					marker_symbol = "star",
 					hovertemplate = "%{text}",
-					text = ["time = " + "{:1.4f}".format(stim.time) + "<br>Index = " + str(stim.index) for stim in el_stimuli],
+					text = ["time = " + "{:1.4f}".format(stim.time) + "<br>Index = " + str(stim.index) for stim in disp_el_stimuli],
 					name = "Electrical Stimuli"
 				)
 			)
@@ -80,7 +82,7 @@ class FallingLeafPlot:
 			
 				stim: ElectricalStimulusWrapper
 				# print the raw signal for each of the intervals
-				for index, stim in enumerate(el_stimuli):
+				for index, stim in enumerate(disp_el_stimuli):
 					# cut the raw signal snippets according to the desired timeframe after the stimulus
 					sweep_disp_duration = min(stim.interval, post_stimulus_timeframe)
 					sweep_first_idx = max(0, floor(raw_signal.sampling_rate * stim.time))
@@ -89,11 +91,11 @@ class FallingLeafPlot:
 					
 					# check how much space we have for scaling the raw data
 					if index > 0:
-						timediff_prev = stim.time - el_stimuli[index - 1].time
+						timediff_prev = stim.time - disp_el_stimuli[index - 1].time
 					else:
 						timediff_prev = 2.0
-					if index < len(el_stimuli) - 1:
-						timediff_next = el_stimuli[index + 1].time - stim.time
+					if index < len(disp_el_stimuli) - 1:
+						timediff_next = disp_el_stimuli[index + 1].time - stim.time
 					else:
 						timediff_next = 2.0
 						
@@ -133,6 +135,7 @@ class FallingLeafPlot:
 					action_potential_channels = [action_potential_channels]
 
 			# Finally, print markers for the action potentials
+			# we do this individually for each channel
 			channel_wrapper: ChannelWrapper
 			ap_channel: SpikeTrain
 			for channel_name, channel_wrapper in self.recording.action_potential_channels.items():
@@ -152,7 +155,7 @@ class FallingLeafPlot:
 				aps_x = []
 				aps_y = []
 				stim: ElectricalStimulusWrapper
-				for stim in el_stimuli:
+				for stim in disp_el_stimuli:
 					# check if the action potentials are within the display range,
 					# i.e. lie before the end of the interval
 					aps_in_display_range = (ap_times >= stim.time) & (ap_times <= stim.time + min(stim.interval, post_stimulus_timeframe))
@@ -160,8 +163,8 @@ class FallingLeafPlot:
 					start_times = ap_times[aps_in_display_range] - stim.time
 					stop_times = ap_times[aps_in_display_range] + ap_durations[aps_in_display_range] - stim.time
 					# add new points to the list of x- and y-coordinates
-					for t_start, t_stop in zip(start_times, stop_times):
-						aps_x += [t_start, t_stop]
+					for t_onset, t_offset in zip(start_times, stop_times):
+						aps_x += [t_onset, t_offset]
 					aps_y += [stim.time] * 2 * sum(aps_in_display_range)
 					
 					assert len(aps_x) == len(aps_y)
@@ -182,24 +185,40 @@ class FallingLeafPlot:
 					)
 				)
 		
-		# TODO AP Tracks need to be plotted as soon as they're migrated to NEO
-		'''
+			# TODO Plot AP tracks only if they actually are in display range
 			# plot the AP tracks
+			ap_track: APTrack
 			for ap_track in ap_tracks:
-				fig.add_trace(
-					go.Scatter(
-						mode = "lines",
-						x = [latency for latency in ap_track.latencies],
-						y = [regular_stimuli[sweep_idx].timepoint for sweep_idx in ap_track.sweep_idcs],
-						line = {
-							"color": ap_track.color,
-							"width": .75
-						},
-						name = "AP Track"
+
+				# filter only those sweeps from the track which are actually displayed
+				track_y = []
+				track_x = []
+				for stim_idx, latency in zip(ap_track.sweep_idcs, ap_track.latencies):
+					if el_stimuli[stim_idx].time > t_start and el_stimuli[stim_idx].time < t_max:
+						track_y.append(el_stimuli[stim_idx].time)
+						track_x.append(latency)
+
+				# print(track_x)
+				# print(track_y)
+				print(t_start, t_max)
+
+				# if the track is not within the display range, we can skip this altogether
+				if len(track_x) == 0 and len(track_y) == 0:
+					continue
+				else:
+					fig.add_trace(
+						go.Scatter(
+							mode = "lines",
+							x = track_x,
+							y = track_y,
+							line = {
+								"color": ap_track.color,
+								"width": .75
+							},
+							name = ap_track.name
+						)
 					)
-				)
 		
-		'''
 		fig.show()
 		
 		self.fig = fig

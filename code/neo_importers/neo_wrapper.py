@@ -50,6 +50,14 @@ class ElectricalStimulusWrapper(ChannelDataWrapper):
                 f"""Starts at {self.time}\n""" + 
                 f"""Interval length is {self.interval}\n""")
 
+    @property
+    def sweep_duration(self):
+        return self.interval
+
+    @property
+    def sweep_endpoint(self):
+        return self.time + self.sweep_duration
+
 class ElectricalExtraStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", ex_channel: Epoch, ex_index: int):
         super().__init__(recording, ex_channel, ex_index)
