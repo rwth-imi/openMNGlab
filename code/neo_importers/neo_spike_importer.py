@@ -375,8 +375,14 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
 def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelReferences) -> None:
     if channel_refs is None:
         return
+    elif isinstance(channel_refs, str):
+        # load all channels if requested
+        if channel_refs.lower() == "all":
+            channel_refs = [st.name for st in segment.spiketrains]
+        
     ap_index = 0
     type_id = TypeID.ACTION_POTENTIAL.value
+
     for ap_ref in channel_refs:
         ap_channel: SpikeTrain = _spiketrain_by_reference(segment.spiketrains, ap_ref)
         assert ap_channel is not None
