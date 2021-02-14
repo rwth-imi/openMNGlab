@@ -41,6 +41,7 @@ class ClusterPlot2D:
 		
 	## Helper function to create plotly hover labels for an AP
 	# param df Input dataframe containing this particular AP
+	@staticmethod
 	def make_hover_labels(actpots, cls_idcs):
 		labels = []
 		for ap, cl_idx in zip(actpots, cls_idcs):

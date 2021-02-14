@@ -9,7 +9,7 @@ from math import floor, ceil
 from quantities.quantity import Quantity
 from plotting import get_fibre_color
 from neo_importers.neo_wrapper import ChannelWrapper, ElectricalStimulusWrapper, ActionPotentialWrapper, MNGRecording
-from fibre_tracking import APTrack
+from fibre_tracking.ap_track import APTrack
 from features import FeatureDatabase
 from neo.core import AnalogSignal
 from quantities import second

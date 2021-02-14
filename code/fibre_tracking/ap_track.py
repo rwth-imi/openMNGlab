@@ -12,7 +12,7 @@ from quantities import ms, second
 import traceback
 
 from recordings import MNGRecording
-from fibre_tracking import ActionPotentialTemplate
+from fibre_tracking.ap_template import ActionPotentialTemplate
 
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 

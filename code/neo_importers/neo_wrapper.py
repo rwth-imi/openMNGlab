@@ -6,7 +6,7 @@ from neo.core import Event, Epoch, AnalogSignal, SpikeTrain, Segment
 from neo.core.dataobject import DataObject
 from quantities import Quantity
 
-class TypeID(Enum):
+class TypeID(Enum): 
     RAW_DATA = "rd" # analogsignal channel
     ACTION_POTENTIAL = "ap" # spiketrain channel
     ELECTRICAL_STIMULUS = "es" # event channel
