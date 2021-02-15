@@ -18,6 +18,14 @@ def _index_channels(channels: Iterable[DataObject], type_filter: TypeID) -> Dict
         channel.annotations["id"]: channel for channel in channels if channel.annotations.get("type_id") == type_filter.value
     }
 
+def _analog_signal_by_name(channels: Iterable[AnalogSignal], name: str) -> AnalogSignal:
+    if not isinstance(name, str):
+        raise Exception("Can only reference analog signals by name using strings.")
+    for channel in channels:
+        if channel.name == name:
+            return channel
+    raise Exception(f"""No raw data channel with name \"{name}\"""")
+
 class ChannelDataWrapper(ABC):
     # To ensure polymorphic creation all subclasses must have the same constructor signature
     # The call to the super constructor itself is not necessary if these fields are not required
@@ -162,3 +170,6 @@ class MNGRecording:
     
     def __getitem__(self, key: str) -> AnalogSignal:
         return self.all_channels.get(key)
+
+    def raw_data_by_name(self, name: str) -> AnalogSignal:
+        return _analog_signal_by_name(channels = self.raw_data_channels.values(), name = name)

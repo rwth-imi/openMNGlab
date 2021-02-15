@@ -11,9 +11,7 @@ import numpy as np
 from quantities import ms, second
 import traceback
 
-from recordings import MNGRecording
 from fibre_tracking.ap_template import ActionPotentialTemplate
-
 from fibre_tracking.track_correlation import track_correlation, get_tc_noise_estimate, search_for_max_tc
 
 ## An AP track which means that a for number of sweeps 0 to k, we have latencies t_0, ..., t_k that belong to a latency track.
@@ -36,10 +34,11 @@ class APTrack(object):
 	
 	## Construct an object for an AP track in the recording
 	# @param latencies A list of tuples (sweep_idx, latency) where sweep_idx is the index of the sweep (also called k in the paper) and the latency t (in seconds)
-	def __init__(self, latencies: List[Tuple[int, int]]):
+	def __init__(self, latencies: List[Tuple[int, int]], display_color: str = "red"):
 		# store the latency tuples in a sorted list
 		self._latencies = sorted(latencies, key = lambda latency: latency[0])
-
+		self._display_color = display_color
+	
 	## Method to construct an AP track class from some action potentials.
 	# @param sweeps List of sweeps
 	# @param aps List of action potentials
@@ -65,7 +64,7 @@ class APTrack(object):
 
 	## TODO implement a method that, for a given track and the recording object, generates a list of Action Potential objects
 	# should return a list of newly generated action potentials
-	def to_aps(self, recording: MNGRecording):
+	def to_aps(self):
 		pass
 
 	## For each sweep and each latency, the closest AP is searched and assigned as an AP that belongs to this track.
@@ -141,7 +140,8 @@ class APTrack(object):
 				next_sweep_idx = max(sweep_idcs) + 1
 				pred_latency = Quantity(slope * next_sweep_idx + latency_intercept, "s")
 				
-				print(pred_latency)
+				if verbose == True:
+					print(f"""Next predicted latency: {pred_latency}""")
 
 				# search for the maximum TC in a certain environment around the predicted latency
 				max_tc_latency, tc = search_for_max_tc(raw_signal = raw_signal, el_stimuli = el_stimuli, sweep_idx = next_sweep_idx, latency = pred_latency, max_shift = max_shift, max_slope = max_slope, \
@@ -250,6 +250,12 @@ class APTrack(object):
 	@property
 	def color(self):
 		return self._display_color
+
+	@color.setter
+	def color(self, color):
+		if not isinstance(color, str):
+			raise ValueError("Please pass the color as a string")
+		self._display_color = color
 
 	@property
 	def name(self):

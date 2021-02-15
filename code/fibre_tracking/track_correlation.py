@@ -24,8 +24,9 @@ def track_correlation(raw_signal: AnalogSignal, el_stimuli: Iterable[ElectricalS
 	radius: int = 2, window_size = 2 * ms):
 	
 	# build a linear space of float values between the minimum and maximum latency shift, i.e. the slope of the linear approximation of the track
-	slopes = np.linspace(start = -max_slope, stop = max_slope, num = 51)
+	slopes = np.linspace(start = -max_slope, stop = max_slope, num = 26)
 	rms = [median_RMS(raw_signal = raw_signal, el_stimuli = el_stimuli, center_stim_idx = center_sweep_idx, latency_slope = slope, latency = latency, radius = radius, window_size = window_size) for slope in slopes]
+	
 	# get the maximum shift, i.e. the optimal slope
 	max_slope = slopes[np.argmax(rms)]
 	# return it together with the track correlation
@@ -46,9 +47,15 @@ def search_for_max_tc(raw_signal: AnalogSignal, el_stimuli: Iterable[ElectricalS
 		established_slope: Quantity = None, window_size: Quantity = 2 * ms):
 	
 	# create a linear space of latencies that we want to search
-	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 51)
-	# calculate the track correlation for each of these latencies
-	tcs_slopes = np.array([track_correlation(raw_signal, el_stimuli, center_sweep_idx = sweep_idx, latency = lat, max_slope = max_slope, radius = radius, window_size = window_size) for lat in latencies])
+	latencies = np.linspace(start = latency - max_shift, stop = latency + max_shift, num = 26)
+
+	# calculate the tc and slopes for all latencies
+	# TODO parallelize this is some way
+	# Problem is that multiprocessing copies the objects, resulting in extreme memory requirements
+	# so maybe we have to extract the arrays and use their array manager objects
+	tcs_slopes = np.array([track_correlation(raw_signal = raw_signal, el_stimuli = el_stimuli, latency = lat, \
+		center_sweep_idx = sweep_idx, max_slope = max_slope, radius = radius, window_size = window_size) \
+			for lat in latencies])
 	
 	# keep only the track correlations where we have a local maximum
 	if enforce_local_maximum == True:

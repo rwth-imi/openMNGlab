@@ -1,4 +1,3 @@
-from signal_artifacts import ActionPotential
 import numpy as np
 from math import ceil
 import matplotlib.pyplot as plt

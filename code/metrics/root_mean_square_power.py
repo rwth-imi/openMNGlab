@@ -57,4 +57,4 @@ def root_mean_square_power(signal):
 	n = len(signal)	
 	squared_signal = signal**2
 	
-	return sqrt(sum(squared_signal) / n)
+	return sqrt(sum(squared_signal.magnitude) / n) * signal.units * signal.units
