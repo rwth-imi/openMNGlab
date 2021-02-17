@@ -2,22 +2,40 @@ import unittest
 import os
 import csv
 from math import floor, ceil
+from neo.core.block import Block
 
-from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files
+from neo.core.segment import Segment
+
+from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files, _do_files_need_fixing
 
 # these are some parameters for the test
 # the two directories must be independent from each other, i.e. not nested, else the separator fix test will fail!
-ORIG_DIR_NAME = ".\\test\\dapsys_test_data\\"
-FIXED_DIR_NAME = ".\\test\\dapsys_test_data_fixed\\"
-CONTINOUS_FILE = "test_data.csv"
-PULSE_FILE = "02.05.2019_F1b_Pulses.CSV"
-TRACK_FILES = ["02.05.2019_F1b_Track1.CSV", "02.05.2019_F1b_Track2.CSV", "02.05.2019_F1b_Track3.CSV"]
+# ORIG_DIR_NAME = ".\\test\\dapsys_test_data\\"
+# FIXED_DIR_NAME = ".\\test\\dapsys_test_data_fixed\\"
+# CONTINOUS_FILE = "test_data.csv"
+# PULSE_FILE = "02.05.2019_F1b_Pulses.CSV"
+# TRACK_FILES = ["02.05.2019_F1b_Track1.CSV", "02.05.2019_F1b_Track2.CSV", "02.05.2019_F1b_Track3.CSV"]
+# SAMPLING_RATE = 10000
+# T_MIN = 11.679126 
+# T_MAX = 1399.99994
+# NUM_STIMULI = 310
+
+ORIG_DIR_NAME = ".\\test\\dapsys_crossing_tracks_0_1400\\"
+FIXED_DIR_NAME = ".\\test\\dapsys_crossing_tracks_0_1400_fixed\\"
+CONTINOUS_FILE = "06_11_19_F3B_AF_Continuous Recording.csv"
+PULSE_FILE = "06_11_19_F3B_AF_Pulses.csv"
+TRACK_FILES = ["06_11_19_F3B_AF_Track2.CSV", "06_11_19_F3B_AF_Track5.CSV"]
 SAMPLING_RATE = 10000
 T_MIN = 11.679126 
 T_MAX = 1399.99994
 NUM_STIMULI = 310
 
 class DapsysImporterTest(unittest.TestCase):
+
+    # checks whether dapsys importer can detect that files need to be fixed due to comma separator issues
+    def test_files_need_fix(self):
+        self.assertTrue(_do_files_need_fixing(ORIG_DIR_NAME))
+        self.assertFalse(_do_files_need_fixing(FIXED_DIR_NAME))
 
     # this test checks whether the DapsysImporter is able to fix the problem on german systems, where Dapsys uses the comma as both, the decimal point and the csv-separator
     def test_separator_fix(self):
@@ -56,23 +74,9 @@ class DapsysImporterTest(unittest.TestCase):
 
     # Check if the new dapsys neo importer can read files
     def test_loading(self):
-        import_dapsys_csv_files(directory = FIXED_DIR_NAME)
-        self.assertTrue(True)
-
-    # # test if a file is loaded correctly
-    # def test_loading(self):
-
-    #     print("test")
-
-    #     # TODO apparently, the template file for APs is missing. We'll need to add this if we want to actually test the importer.
-    #     importer = DapsysImporter(dir_path = FIXED_DIR_NAME, sampling_rate = SAMPLING_RATE)
-        
-    #     # now, check if all the electrical stimuli have been loaded
-    #     self.assertEqual(len(importer.electrical_stimuli), NUM_STIMULI)
-
-    #     # these values are hard-coded for the start and end times of our test data
-    #     num_samples = ceil(T_MAX * SAMPLING_RATE)
-    #     self.assertEqual(num_samples, len(importer.raw_signal))
-
-    #     # check if all tracks have been loaded
-    #     self.assertEqual(len(importer.ap_tracks), 2)
+        block: Block = import_dapsys_csv_files(directory = FIXED_DIR_NAME)
+        self.assertEquals(len(block.segments), 1)
+        seg: Segment = block.segments[0]
+        self.assertGreater(len(seg.irregularlysampledsignals), 0)
+        self.assertGreater(len(seg.events), 0)
+        self.assertGreater(len(seg.spiketrains), 0)

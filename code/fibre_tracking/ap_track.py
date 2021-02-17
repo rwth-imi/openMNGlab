@@ -247,6 +247,10 @@ class APTrack(object):
 	def ap_template(self):
 		return self._ap_template
 
+	@ap_template.setter
+	def ap_template(self, ap_template):
+		self._ap_template = ap_template
+
 	@property
 	def color(self):
 		return self._display_color
