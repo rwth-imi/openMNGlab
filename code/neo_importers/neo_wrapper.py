@@ -171,5 +171,5 @@ class MNGRecording:
     def __getitem__(self, key: str) -> AnalogSignal:
         return self.all_channels.get(key)
 
-    def raw_data_by_name(self, name: str) -> AnalogSignal:
+    def raw_data_channel_by_name(self, name: str) -> AnalogSignal:
         return _analog_signal_by_name(channels = self.raw_data_channels.values(), name = name)
