@@ -9,6 +9,9 @@ import numpy as np
 import re
 
 from neo_importers.neo_wrapper import TypeID
+from neo_importers.neo_utils import store_original_names, make_names_unique, quantity_concat, \
+                                    remove_array_annotations, remove_empty_names, prune_segment, \
+                                    find_spikes
 
 #################################################################################################
 ## General information:                                                                        ##
@@ -53,17 +56,6 @@ MechanicalStimulusReferences = Set[MechanicalStimulusReference]
 
 ############################# General helpers #############################
 
-def _store_original_names(objects: Iterable[DataObject]) -> None:
-    for obj in objects:
-        obj.annotate(original_name=obj.name)
-
-def _make_names_unique(objects: Iterable[DataObject]) -> None:
-    objects_by_name: Dict[str, List[DataObject]] = {obj.name: [o for o in objects if o.name == obj.name] for obj in objects}
-    for obj_list in objects_by_name.values():
-        if len(obj_list) > 1:
-            for i, obj in enumerate(obj_list):
-                obj.name = f"{obj.name}_{i}"
-
 def _normalize_channel_refs(references: EventChannelReferences) -> Set[EventChannelReference]:
     if isinstance(references, set):
         return references
@@ -98,9 +90,6 @@ def _event_channel_by_reference(channels: Iterable[Event], ref: EventChannelRefe
             or (isinstance(ch_ref, int) and channel.annotations.get("channel_id", None) == ch_ref \
                 and channel.annotations.get("marker", None) == marker):
             return channel
-
-def _quantity_concat(a: Quantity, b: Quantity) -> Quantity:
-    return np.concatenate([a, b.rescale(a.units)]) * a.units
 
 ############################# Spiketrains #############################
 
@@ -154,17 +143,8 @@ def _assign_event_channel_ids(events: List[Event]) -> None:
 
 def _prepare_events(segment: Segment) -> None:
     events: List[Event] = segment.events
-    _make_names_unique(events)
+    make_names_unique(events)
     _assign_event_channel_ids(events)
-
-def _remove_empty_names(objects: Iterable[DataObject]) -> None:
-    for obj in objects:
-        if obj.name is None or not obj.name:
-            obj.name = "UNNAMED"
-
-def _remove_array_annotations(objects: Iterable[DataObject]) -> None:
-    for obj in objects:
-        obj.array_annotations.clear()
 
 ############################# Semantic datastructures #############################
 
@@ -228,7 +208,7 @@ def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences)
         # Alternative solution would be to have this intervall be one shorter then the datapoints
         # and annotate them directly and not via array_annotate
         intervals: Quantity = np.diff(channel.times)
-        intervals = _quantity_concat(intervals, np.array([float("inf")]) * s)
+        intervals = quantity_concat(intervals, np.array([float("inf")]) * s)
         channel.array_annotate(intervals=intervals)
         result[channel.name] = channel_id
     return result
@@ -322,20 +302,6 @@ def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelRefer
 
 ############################# Mechanical Stimuli #############################
 
-# returns the start:stop tuples for when the amplitude is larger than the signal
-def _find_spikes(channel: AnalogSignal, threshold: Quantity, signal_channel_index: int=0) -> List[Tuple[int, int]]:
-    result: List[Tuple[int, int]] = []
-    start_index: int = None
-    assert channel.shape[1] > signal_channel_index
-    for i, amp_lst in enumerate(channel):
-        amp: Quantity = amp_lst[signal_channel_index]
-        if start_index is None and amp >= threshold:
-            start_index = i
-        elif start_index is not None and amp < threshold:
-            result.append((start_index, i))
-            start_index = None
-    return result
-
 def _channel_index_to_time(channel: AnalogSignal, index: int) -> Quantity:
     result = channel.t_start + index * channel.sampling_period
     # ensure unit compatibility
@@ -344,7 +310,7 @@ def _channel_index_to_time(channel: AnalogSignal, index: int) -> Quantity:
 
 def _spiketrain_from_raw(channel: AnalogSignal, threshold: Quantity) -> SpikeTrain:
     assert channel.signal.shape[1] == 1
-    spikes = _find_spikes(channel, threshold)
+    spikes = find_spikes(channel, threshold)
     signal = channel.signal.squeeze()
     times = np.array([_channel_index_to_time(channel, start) for start, _ in spikes]) * channel.sampling_period.units
     waveforms = np.array([[signal[start:stop]] for start, stop in spikes]) * channel.units
@@ -416,20 +382,11 @@ def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelRefer
 def _prepare_segment(segment: Segment) -> None:
     # the neo spike importer creates some faulty array annotations
     # we need to remove them because they cause errors with the NIX exporter
-    _remove_array_annotations(segment.data_children)
-    _remove_empty_names(segment.data_children)
-    _store_original_names(segment.data_children)
+    remove_array_annotations(segment.data_children)
+    remove_empty_names(segment.data_children)
+    store_original_names(segment.data_children)
     _prepare_spiketrains(segment)
     _prepare_events(segment)
-
-# deletes all unnecessary channels
-def _prune_segment(segment: Segment) -> None:
-    segment.analogsignals = [a for a in segment.analogsignals if "type_id" in a.annotations]
-    segment.epochs = [ep for ep in segment.epochs if "type_id" in ep.annotations]
-    segment.events = [ev for ev in segment.events if "type_id" in ev.annotations]
-    segment.irregularlysampledsignals = [i for i in segment.irregularlysampledsignals if "type_id" in i.annotations]
-    segment.spiketrains = [st for st in segment.spiketrains if "type_id" in st.annotations]
-    segment.imagesequences = [i for i in segment.imagesequences if "type_id" in i.annotations]
 
 def import_spike_file(file_name: Path,
                       stimuli_event_channels: EventChannelReferences = None,
@@ -449,7 +406,7 @@ def import_spike_file(file_name: Path,
         extra_stimuli_id_map = _prepare_extra_stimuli(segment, extra_stimuli_event_channels)
         mechanical_stimuli_id_map = _prepare_mechanical_stimuli(segment, mechanical_stimuli_from_raw, mechanical_stimuli_channels)
         ap_id_map = _prepare_action_potentials(segment, action_potential_channels)
-        _prune_segment(segment)
+        prune_segment(segment)
         channel_id_map[TypeID.RAW_DATA].update(raw_id_map)
         channel_id_map[TypeID.ELECTRICAL_STIMULUS].update(stimuli_id_map)
         channel_id_map[TypeID.ELECTRICAL_EXTRA_STIMULUS].update(extra_stimuli_id_map)
