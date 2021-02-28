@@ -162,6 +162,10 @@ def _remove_empty_names(objects: Iterable[DataObject]) -> None:
         if obj.name is None or not obj.name:
             obj.name = "UNNAMED"
 
+def _remove_array_annotations(objects: Iterable[DataObject]) -> None:
+    for obj in objects:
+        obj.array_annotations.clear()
+
 ############################# Semantic datastructures #############################
 
 ############################# Electrical stimuli #############################
@@ -196,11 +200,12 @@ def _create_filter_channel(segment: Segment, channel_ref: ChannelReference, mark
 
 # First, detect stimuli event channels, if necessary split them up by their marker
 # Second, create stimuli interval channels for each stimuli channel
-def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences) -> None:
+def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences) -> Dict[str, str]:
     if stimuli_channels is None:
-        return
+        return {}
     channels = _normalize_channel_refs(stimuli_channels)
     stimulus_index = 0
+    result = {}
     for ev_ref in channels:
         # Get the referenced channel
         channel: Event = None
@@ -225,12 +230,15 @@ def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences)
         intervals: Quantity = np.diff(channel.times)
         intervals = _quantity_concat(intervals, np.array([float("inf")]) * s)
         channel.array_annotate(intervals=intervals)
+        result[channel.name] = channel_id
+    return result
 
 ############################# Raw data #############################
 
-def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> None:
+def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> Dict[str, str]:
     if raw_channels is None:
         raw_channels = {a.name for a in segment.analogsignals}
+    result = {}
     index = 0
     type_id = TypeID.RAW_DATA.value
     for channel_ref in raw_channels:
@@ -238,6 +246,8 @@ def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> 
         channel_id = f"{type_id}.{index}"
         index += 1
         channel.annotate(id=channel_id, type_id=type_id)
+        result[channel.name] = channel_id
+    return result
 
 ############################# Extra Stimuli #############################
 
@@ -278,10 +288,11 @@ def _create_extra_stimuli_channel(from_channel: Event, time_threshold: Quantity)
     return epoch
     
 
-def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelReferences, time_threshold: Quantity = 1*s):
+def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelReferences, time_threshold: Quantity = 1*s) -> Dict[str, str]:
     # basically the same as _prepare_stimuli
     if stimuli_channels is None:
-        return
+        return {}
+    result = {}
     channels = _normalize_channel_refs(stimuli_channels)
     extra_stimulus_index = 0
     for ev_ref in channels:
@@ -306,6 +317,8 @@ def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelRefer
         if marker is not None:
             extra_stimuli_channel.annotate(marker=marker)
         segment.epochs.append(extra_stimuli_channel)
+        result[channel.name] = channel_id
+    return result
 
 ############################# Mechanical Stimuli #############################
 
@@ -345,8 +358,9 @@ def _get_amplitudes(channel: SpikeTrain) -> Quantity:
     # there is probably a numpy version of this
     return np.array([max(wave[0]) for wave in channel.waveforms]) * channel.units
 
-def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusReferences, spike_channels: SpikeChannelReferences) -> None:
+def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusReferences, spike_channels: SpikeChannelReferences) -> Dict[str, str]:
     type_id = TypeID.MECHANICAL_STIMULUS.value
+    result = {}
     stimulus_index = 0
     if from_raw is not None:
         for channel_ref, threshold in from_raw:
@@ -360,6 +374,7 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             new_channel.array_annotate(amplitudes=_get_amplitudes(new_channel))
             # add channel to segment
             segment.spiketrains.append(new_channel)
+            result[new_channel.name] = channel_id
     if spike_channels is not None:
         spike_channels = _normalize_channel_refs(spike_channels)
         for channel_ref in spike_channels:
@@ -369,10 +384,12 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             stimulus_index += 1
             channel.annotate(id=channel_id, type_id=type_id)
             channel.array_annotate(amplitudes=_get_amplitudes(channel))
+            result[channel.name] = channel_id
+    return result
             
 ############################# Action potentials #############################
 
-def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelReferences) -> None:
+def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelReferences) -> Dict[str, str]:
     if channel_refs is None:
         return
     elif isinstance(channel_refs, str):
@@ -382,6 +399,7 @@ def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelRefer
         
     ap_index = 0
     type_id = TypeID.ACTION_POTENTIAL.value
+    result = {}
 
     for ap_ref in channel_refs:
         ap_channel: SpikeTrain = _spiketrain_by_reference(segment.spiketrains, ap_ref)
@@ -390,11 +408,15 @@ def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelRefer
         channel_id = f"{type_id}.{ap_index}"
         ap_index += 1
         ap_channel.annotate(type_id=type_id, id=channel_id)
-
+        result[ap_channel.name] = channel_id
+    return result
 
 ############################# Loading #############################
 
 def _prepare_segment(segment: Segment) -> None:
+    # the neo spike importer creates some faulty array annotations
+    # we need to remove them because they cause errors with the NIX exporter
+    _remove_array_annotations(segment.data_children)
     _remove_empty_names(segment.data_children)
     _store_original_names(segment.data_children)
     _prepare_spiketrains(segment)
@@ -415,16 +437,22 @@ def import_spike_file(file_name: Path,
                       mechanical_stimuli_from_raw: MechanicalStimulusReferences = None,
                       mechanical_stimuli_channels: SpikeChannelReferences = None,
                       action_potential_channels: SpikeChannelReferences=None,
-                      raw_channels: Set[ChannelReference] = None) -> Block:
+                      raw_channels: Set[ChannelReference] = None) -> Tuple[Block, Dict[TypeID, Dict[str, str]]]:
     spikeio = Spike2IO(filename=str(file_name.resolve()))
     blocks = spikeio.read(lazy=False, load_waveforms=True)
     spike_data = blocks[0]
+    channel_id_map = { type_id: {} for type_id in TypeID }
     for segment in spike_data.segments:
         _prepare_segment(segment)
-        _prepare_raw_data(segment, raw_channels)
-        _prepare_stimuli(segment, stimuli_event_channels)
-        _prepare_extra_stimuli(segment, extra_stimuli_event_channels)
-        _prepare_mechanical_stimuli(segment, mechanical_stimuli_from_raw, mechanical_stimuli_channels)
-        _prepare_action_potentials(segment, action_potential_channels)
+        raw_id_map = _prepare_raw_data(segment, raw_channels)
+        stimuli_id_map = _prepare_stimuli(segment, stimuli_event_channels)
+        extra_stimuli_id_map = _prepare_extra_stimuli(segment, extra_stimuli_event_channels)
+        mechanical_stimuli_id_map = _prepare_mechanical_stimuli(segment, mechanical_stimuli_from_raw, mechanical_stimuli_channels)
+        ap_id_map = _prepare_action_potentials(segment, action_potential_channels)
         _prune_segment(segment)
-    return spike_data
+        channel_id_map[TypeID.RAW_DATA].update(raw_id_map)
+        channel_id_map[TypeID.ELECTRICAL_STIMULUS].update(stimuli_id_map)
+        channel_id_map[TypeID.ELECTRICAL_EXTRA_STIMULUS].update(extra_stimuli_id_map)
+        channel_id_map[TypeID.MECHANICAL_STIMULUS].update(mechanical_stimuli_id_map)
+        channel_id_map[TypeID.ACTION_POTENTIAL].update(ap_id_map)
+    return spike_data, channel_id_map
