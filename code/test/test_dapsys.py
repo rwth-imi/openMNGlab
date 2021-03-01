@@ -3,10 +3,10 @@ import os
 import csv
 from math import floor, ceil
 from neo.core.block import Block
-
 from neo.core.segment import Segment
 
 from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files, _do_files_need_fixing
+from neo_importers.neo_wrapper import MNGRecording
 
 # these are some parameters for the test
 # the two directories must be independent from each other, i.e. not nested, else the separator fix test will fail!
@@ -77,6 +77,10 @@ class DapsysImporterTest(unittest.TestCase):
         block: Block = import_dapsys_csv_files(directory = FIXED_DIR_NAME)
         self.assertEquals(len(block.segments), 1)
         seg: Segment = block.segments[0]
-        self.assertGreater(len(seg.irregularlysampledsignals), 0)
+        self.assertGreater(len(seg.analogsignals), 0)
         self.assertGreater(len(seg.events), 0)
         self.assertGreater(len(seg.spiketrains), 0)
+        recording: MNGRecording = MNGRecording(seg)
+        self.assertTrue(recording.action_potential_channels)
+        self.assertTrue(recording.electrical_stimulus_channels)
+        self.assertTrue(recording.raw_data_channels)

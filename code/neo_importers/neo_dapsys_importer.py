@@ -21,6 +21,8 @@ import bisect
 # these are imports from our own packages
 from fibre_tracking import ActionPotentialTemplate, APTrack
 from metrics.normalized_cross_correlation import sliding_window_normalized_cross_correlation
+from neo_importers.neo_wrapper import TypeID
+from neo_importers.neo_utils import quantity_concat, convert_irregularly_sampled_signal_to_analog_signal
 
 def _get_files_with_extension(path: str, extension: str) -> List[str]:
     return [filepath for filepath in [os.path.join(path, fname) for fname in os.listdir(path)] \
@@ -82,7 +84,15 @@ def _read_main_pulse_file(filepaths: List[str]) -> Event:
         pulse_file = [file for file in filepaths if "pulses" in os.path.basename(file).lower()][0]
         pulses_df = pd.read_csv(filepath_or_buffer = pulse_file, header = None, names = ["timestamp", "comment"])
         times = Quantity(pulses_df["timestamp"], "s")
-        return Event(times =  times, labels = pulses_df["comment"], name = "Dapsys Main Pulse")
+
+        pulses = Event(times =  times, labels = pulses_df["comment"], name = "Dapsys Main Pulse", file_origin = pulse_file)
+        pulses.annotate(id = f"{TypeID.ELECTRICAL_STIMULUS.value}.0", type_id = TypeID.ELECTRICAL_STIMULUS.value)
+
+        intervals: Quantity = np.diff(times)
+        intervals = quantity_concat(intervals, np.array([float("inf")]) * second)
+        pulses.array_annotate(intervals = intervals)
+
+        return pulses
     except Exception as ex:
         traceback.print_exc()
 
@@ -125,7 +135,9 @@ def _read_signal_file(filepaths: List[str], signal_unit: Quantity = None) -> Irr
         else:
             signal = Quantity(signal, "dimensionless")
 
-        return IrregularlySampledSignal(times = times, signal = signal, name = "Signal")
+        result = IrregularlySampledSignal(times = times, signal = signal, name = "Irregularly Sampled Signal", file_origin = signal_file)
+        result.annotate(id = f"{TypeID.RAW_DATA.value}.0", type_id = TypeID.RAW_DATA.value)
+        return result
 
     # something might go wrong as we perform some IO operations here
     except Exception as ex:
@@ -217,7 +229,8 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
         raise NotImplementedError("Not implemented for analog signals yet.")
 
     # initialize our list of action_potentials
-    track_aps = []
+    ap_times = []
+    ap_waveforms = []
     
     # iterate over all the tracks
     for track_idx, ap_track in enumerate(ap_tracks):
@@ -252,14 +265,26 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
                 correlations = sliding_window_normalized_cross_correlation(signal[first_signal_idx : last_signal_idx], ap_template.signal_template)
                 # then, retrieve the index for which we had the maximum correlation
                 max_correlation_idx = np.argmax(correlations) + first_signal_idx
-                # finally, create the AP
-                track_aps.append(signal.times[max_correlation_idx])
+                # finally, append the starting time and 
+                ap_times.append(signal.times[max_correlation_idx])
+                ap_waveforms.append(signal[max_correlation_idx : max_correlation_idx + len(ap_template)])
         except Exception as ex:
             traceback.print_exc()
                 
     # sort the APs and return spiketrain object
-    track_aps = sorted(track_aps)
-    return SpikeTrain(times = Quantity(track_aps, "s"), t_start = signal.t_start, t_stop = signal.t_stop)
+    ap_times = sorted(ap_times)
+    
+    # build the waveforms array
+    num_aps = len(ap_waveforms)
+    max_len = max([len(ap) for ap in ap_waveforms])
+    waveforms = np.zeros(shape = (num_aps, 1, max_len), dtype = np.float64) * signal.units
+    for ap_idx, ap_waveform in enumerate(ap_waveforms):
+        waveforms[ap_idx, 0, 0 : len(ap_waveform)] = ap_waveform.ravel()
+
+    result = SpikeTrain(times = Quantity(ap_times, "s"), t_start = signal.t_start, t_stop = signal.t_stop, \
+        name = "APs from tracks", waveforms = waveforms)
+    result.annotate(id = f"{TypeID.ACTION_POTENTIAL.value}.0", type_id = TypeID.ACTION_POTENTIAL.value)
+    return result
 
 # TODO add comment
 def _find_action_potentials_per_threshold(raw_signal: IrregularlySampledSignal, ap_tracks: Iterable[APTrack], signal_threshold: Quantity, \
@@ -336,14 +361,22 @@ def import_dapsys_csv_files(directory: str, sampling_rate: Union[Quantity, str] 
 
     csv_files = _get_files_with_extension(directory, ".csv")
     segment.events.append(_read_main_pulse_file(filepaths = csv_files))
-    segment.irregularlysampledsignals.append(_read_signal_file(filepaths = csv_files, signal_unit = "uV"))
-    
-    if isinstance(sampling_rate, str) and sampling_rate == "imply":
-        sampling_rate = _imply_sampling_rate_from_irregular_signal(segment.irregularlysampledsignals[0])
 
+    # read the signal file and store this irregularly sampled signal for later computations
+    irregular_sig: IrregularlySampledSignal = _read_signal_file(filepaths = csv_files, signal_unit = "uV")
+    segment.irregularlysampledsignals.append(irregular_sig)
+
+    # imply sampling rate if necessary
+    if isinstance(sampling_rate, str) and sampling_rate == "imply":
+        sampling_rate = _imply_sampling_rate_from_irregular_signal(irregular_sig)
+    # we need to convert the irregularly sampled signal to an analog signal
+    analog_sig: AnalogSignal = convert_irregularly_sampled_signal_to_analog_signal(irregular_sig, sampling_rate = sampling_rate)
+    analog_sig.annotate(id = f"{TypeID.RAW_DATA.value}.1", type_id = TypeID.RAW_DATA.value)
+    segment.analogsignals.append(analog_sig)
+    
     ap_tracks: List[APTrack] = _read_track_files(filepaths = csv_files, el_stimuli = segment.events[0], sampling_rate = sampling_rate)
     segment.spiketrains.append(_find_action_potentials_on_tracks(ap_tracks = ap_tracks, el_stimuli = segment.events[0], \
-        signal = segment.irregularlysampledsignals[0], window_size = ap_correlation_window_size))
+        signal = irregular_sig, window_size = ap_correlation_window_size))
 
     # other_aps: SpikeTrain = _find_action_potentials_per_threshold(raw_signal = signal, ap_tracks = ap_tracks, \
     #     signal_threshold = Quantity(0.01, "dimensionless"), correlation_threshold = 0.5)

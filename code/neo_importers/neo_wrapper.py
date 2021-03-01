@@ -151,7 +151,8 @@ class MNGRecording:
             channel.annotations["id"]: channel for channel in segment.data_children if "id" in channel.annotations
         }
 
-        self.raw_data_channels_raw: Dict[str, AnalogSignal] = _index_channels(segment.analogsignals, TypeID.RAW_DATA)
+        self.raw_data_channels_raw: Dict[str, AnalogSignal] = {**_index_channels(segment.analogsignals, TypeID.RAW_DATA), \
+            **_index_channels(segment.irregularlysampledsignals, TypeID.RAW_DATA)}
         self.action_potential_channels_raw: Dict[str, SpikeTrain] = _index_channels(segment.spiketrains, TypeID.ACTION_POTENTIAL)
         self.electrical_stimulus_channels_raw: Dict[str, Event] = _index_channels(segment.events, TypeID.ELECTRICAL_STIMULUS)
         self.electrical_extra_stimulus_channels_raw: Dict[str, Epoch] = _index_channels(segment.events, TypeID.ELECTRICAL_EXTRA_STIMULUS)
