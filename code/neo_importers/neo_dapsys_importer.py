@@ -222,11 +222,14 @@ def _imply_sampling_rate_from_irregular_signal(signal: IrregularlySampledSignal,
 
 # TODO add doxygen comment
 def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: Event, signal: Union[IrregularlySampledSignal, AnalogSignal], \
-    window_size: Quantity = Quantity(0.003, "s")) -> SpikeTrain:
+    window_size: Quantity = Quantity(0.003, "s"), sampling_rate = None) -> SpikeTrain:
     
     # TODO implement this function for analog signals and make it reusable
-    if isinstance(signal, AnalogSignal):
-        raise NotImplementedError("Not implemented for analog signals yet.")
+    if isinstance(signal, IrregularlySampledSignal):
+        if sampling_rate is None:
+            raise ValueError("If an irregularly sampled signal is passed, you need to set the sampling rate!")
+    elif isinstance(signal, AnalogSignal):
+        sampling_rate = signal.sampling_rate
 
     # initialize our list of action_potentials
     ap_times = []
@@ -255,11 +258,10 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
                     first_signal_idx = bisect.bisect_left(signal.times, (window_center_time - window_size - ap_template.duration / 2))
                     # find last signal index
                     last_signal_idx = bisect.bisect_left(signal.times, (window_center_time + window_size + ap_template.duration / 2))
-                else:
-                    # TODO implement index calculation for regularly sampled signals
-                    # first_signal_idx = floor((window_center_time - window_size) * self.sampling_rate - (len(ap_template) / 2.0)) 
-                    # last_signal_idx = floor((window_center_time + window_size) * self.sampling_rate + (len(ap_template) / 2.0)) 
-                    pass
+                elif isinstance(signal, AnalogSignal):
+                    # TODO Check why this function is much slower for analog signals
+                    first_signal_idx = floor((window_center_time - window_size - (ap_template.duration / 2.0)) * signal.sampling_rate) 
+                    last_signal_idx = floor((window_center_time + window_size + (ap_template.duration / 2.0)) * signal.sampling_rate)
 
                 # slide the template over the window
                 correlations = sliding_window_normalized_cross_correlation(signal[first_signal_idx : last_signal_idx], ap_template.signal_template)
@@ -282,7 +284,7 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
         waveforms[ap_idx, 0, 0 : len(ap_waveform)] = ap_waveform.ravel()
 
     result = SpikeTrain(times = Quantity(ap_times, "s"), t_start = signal.t_start, t_stop = signal.t_stop, \
-        name = "APs from tracks", waveforms = waveforms)
+        name = "APs from tracks", waveforms = waveforms, sampling_rate = sampling_rate)
     result.annotate(id = f"{TypeID.ACTION_POTENTIAL.value}.0", type_id = TypeID.ACTION_POTENTIAL.value)
     return result
 
@@ -376,7 +378,7 @@ def import_dapsys_csv_files(directory: str, sampling_rate: Union[Quantity, str] 
     
     ap_tracks: List[APTrack] = _read_track_files(filepaths = csv_files, el_stimuli = segment.events[0], sampling_rate = sampling_rate)
     segment.spiketrains.append(_find_action_potentials_on_tracks(ap_tracks = ap_tracks, el_stimuli = segment.events[0], \
-        signal = irregular_sig, window_size = ap_correlation_window_size))
+        signal = irregular_sig, window_size = ap_correlation_window_size, sampling_rate = sampling_rate))
 
     # other_aps: SpikeTrain = _find_action_potentials_per_threshold(raw_signal = signal, ap_tracks = ap_tracks, \
     #     signal_threshold = Quantity(0.01, "dimensionless"), correlation_threshold = 0.5)
