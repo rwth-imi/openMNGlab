@@ -225,8 +225,7 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
     window_size: Quantity = Quantity(0.003, "s"), sampling_rate = None) -> SpikeTrain:
     
     # TODO implement this function for analog signals and make it reusable
-    if isinstance(signal, IrregularlySampledSignal):
-        if sampling_rate is None:
+    if isinstance(signal, IrregularlySampledSignal) and sampling_rate is None:
             raise ValueError("If an irregularly sampled signal is passed, you need to set the sampling rate!")
     elif isinstance(signal, AnalogSignal):
         sampling_rate = signal.sampling_rate
