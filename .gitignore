@@ -8,6 +8,5 @@ data/*.csv
 data/*.zip
 data/*.smr
 data/dapsys*
-code/test/dapsys_*
 *.yml
 *.npy

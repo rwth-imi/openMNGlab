@@ -1,27 +1,16 @@
 import unittest
 import os
 import csv
-from math import floor, ceil
+from pathlib import Path
+
 from neo.core.block import Block
 from neo.core.segment import Segment
 
 from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files, _do_files_need_fixing
 from neo_importers.neo_wrapper import MNGRecording
 
-# these are some parameters for the test
-# the two directories must be independent from each other, i.e. not nested, else the separator fix test will fail!
-# ORIG_DIR_NAME = ".\\test\\dapsys_test_data\\"
-# FIXED_DIR_NAME = ".\\test\\dapsys_test_data_fixed\\"
-# CONTINOUS_FILE = "test_data.csv"
-# PULSE_FILE = "02.05.2019_F1b_Pulses.CSV"
-# TRACK_FILES = ["02.05.2019_F1b_Track1.CSV", "02.05.2019_F1b_Track2.CSV", "02.05.2019_F1b_Track3.CSV"]
-# SAMPLING_RATE = 10000
-# T_MIN = 11.679126 
-# T_MAX = 1399.99994
-# NUM_STIMULI = 310
-
-ORIG_DIR_NAME = ".\\test\\dapsys_crossing_tracks_0_1400\\"
-FIXED_DIR_NAME = ".\\test\\dapsys_crossing_tracks_0_1400_fixed\\"
+ORIG_DIR_NAME = Path(".")/"tests"/"resources"/"dapsys"/"dapsys_crossing_tracks_0_1400"
+FIXED_DIR_NAME = Path(".")/"tests"/"resources"/"dapsys"/"dapsys_crossing_tracks_0_1400_fixed"
 CONTINOUS_FILE = "06_11_19_F3B_AF_Continuous Recording.csv"
 PULSE_FILE = "06_11_19_F3B_AF_Pulses.csv"
 TRACK_FILES = ["06_11_19_F3B_AF_Track2.CSV", "06_11_19_F3B_AF_Track5.CSV"]
@@ -42,14 +31,14 @@ class DapsysImporterTest(unittest.TestCase):
         # first, remove the fixed files if they exist, to make sure that we don't append to the files
         if os.path.exists(FIXED_DIR_NAME):
             for file in os.listdir(FIXED_DIR_NAME):
-                os.remove(FIXED_DIR_NAME + "\\" + file)
+                os.remove(os.path.join(FIXED_DIR_NAME, file))
 
         # run the method to fix the separator issue
         _fix_separator_decimal_matching(in_path = ORIG_DIR_NAME, out_path = FIXED_DIR_NAME)
 
         # get the files/directories from the original and the fixed directory
-        orig_paths = [ORIG_DIR_NAME + "\\" + fname for fname in sorted(os.listdir(ORIG_DIR_NAME))]
-        fixed_paths = [FIXED_DIR_NAME + "\\" + fname for fname in sorted(os.listdir(FIXED_DIR_NAME))]
+        orig_paths = [os.path.join(ORIG_DIR_NAME, fname) for fname in sorted(os.listdir(ORIG_DIR_NAME))]
+        fixed_paths = [os.path.join(FIXED_DIR_NAME, fname) for fname in sorted(os.listdir(FIXED_DIR_NAME))]
 
         # assert that we have the same number of files
         self.assertTrue(len(orig_paths) == len(fixed_paths))
