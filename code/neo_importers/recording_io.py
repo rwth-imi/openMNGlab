@@ -13,8 +13,14 @@ def _check_extension(file_name: Path) -> bool:
 def load_block(file_name: Path) -> Tuple[Block, Dict[TypeID, Dict[str, str]]]:
     assert _check_extension(file_name)
     reader = NixIO(str(file_name), "ro")
+
     blocks = reader.read(lazy=False)
     block: Block = blocks[0]
+    if block.name is None or len(block.name) == 0:
+        block.name = str(file_name.stem)
+    if block.file_origin is None:
+        block.file_origin = str(file_name)
+
     id_map = { type_id: {} for type_id in TypeID }
     data_object: DataObject
     for segment in block.segments:
