@@ -4,8 +4,9 @@ from enum import Enum
 
 from neo.core import Event, Epoch, AnalogSignal, SpikeTrain, Segment
 from neo.core.dataobject import DataObject
-from quantities import Quantity
+from quantities import Quantity, ms
 
+## Enum for the different channel types in our unified format
 class TypeID(Enum): 
     RAW_DATA = "rd" # analogsignal channel
     ACTION_POTENTIAL = "ap" # spiketrain channel
@@ -13,11 +14,19 @@ class TypeID(Enum):
     ELECTRICAL_EXTRA_STIMULUS = "ex" # epoch channel
     MECHANICAL_STIMULUS = "ms" #spiketrain channel
 
+## Get a lookup dictionary for channel ids to channel objects of a given type
+#  @param channels iterable container containing all channels
+#  @param type_filter the TypeID value to filter  for
+#  @returns a lookup table mapping channel ids to their channels
 def _index_channels(channels: Iterable[DataObject], type_filter: TypeID) -> Dict[str, DataObject]:
     return {
         channel.annotations["id"]: channel for channel in channels if channel.annotations.get("type_id") == type_filter.value
     }
 
+## Returns an analog channel by it's channel name
+#  @param channels iterable container containing the analog channels to search through
+#  @param name the name to search for
+#  @returns the first found channel matching the name
 def _analog_signal_by_name(channels: Iterable[AnalogSignal], name: str) -> AnalogSignal:
     if not isinstance(name, str):
         raise Exception("Can only reference analog signals by name using strings.")
@@ -26,6 +35,11 @@ def _analog_signal_by_name(channels: Iterable[AnalogSignal], name: str) -> Analo
             return channel
     raise Exception(f"""No raw data channel with name \"{name}\"""")
 
+## Base class for representing a datapoint in a channel
+#  Contains the following members:
+#  * recording: a reference to the MNG recording this wrapper was created from
+#  * channel: a reference to the Neo datastructure this data is from
+#  * index: the datapoint index within the neo structure
 class ChannelDataWrapper(ABC):
     # To ensure polymorphic creation all subclasses must have the same constructor signature
     # The call to the super constructor itself is not necessary if these fields are not required
@@ -34,19 +48,28 @@ class ChannelDataWrapper(ABC):
         self.channel: DataObject = channel
         self.index: int = index
 
+## Wrapper class representing a single action potential
+#  Contains the following members:
+#  * time: start time of the ap spike
+#  * raw_signal: raw data of the waveform
+#  * duration: length of the spike
 class ActionPotentialWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", ap_channel: SpikeTrain, ap_index: int):
         super().__init__(recording, ap_channel, ap_index)
         self.time: Quantity = ap_channel.times[ap_index]
         self.raw_signal: Quantity = ap_channel.waveforms[ap_index, 0]
         self.duration: Quantity = len(self.raw_signal) * ap_channel.sampling_period
-        self.duration = self.duration.rescale("ms")
+        self.duration.units = ms
 
     def __str__(self):
         return (f"""Action potential:\n"""  + 
                 f"""Starts at {self.time}\n""" + 
                 f"""Duration is {self.duration}\n""")
 
+## Wrapper class representing a single electrical stimulus
+#  Contains the following members:
+#  * time: start time of the event
+#  * interval: the time until the next stimulus
 class ElectricalStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", es_channel: Event, es_index: int):
         super().__init__(recording, es_channel, es_index)
@@ -66,6 +89,11 @@ class ElectricalStimulusWrapper(ChannelDataWrapper):
     def sweep_endpoint(self):
         return self.time + self.sweep_duration
 
+## Wrapper class representing a single electrical extra stimulus
+#  Contains the following members:
+#  * time: start time of the first stimulus of the group
+#  * duration: length of the whole stimulus group
+#  * frequency: frequency of the stimuli within that interval
 class ElectricalExtraStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", ex_channel: Epoch, ex_index: int):
         super().__init__(recording, ex_channel, ex_index)
@@ -73,6 +101,12 @@ class ElectricalExtraStimulusWrapper(ChannelDataWrapper):
         self.duration: Quantity = ex_channel.durations[ex_index]
         self.frequency: Quantity = ex_channel.array_annotations["frequency"][ex_index]
 
+## Wrapper class representing a single mechanical stimulus
+#  Contains the following members:
+#  * time: start time of the stimulus spike
+#  * raw_signal: raw data of the waveform
+#  * duration: length of the stimulus
+#  * amplitude: maximum amplitude of that stimulus
 class MechanicalStimulusWrapper(ChannelDataWrapper):
     def __init__(self, recording: "MNGRecording", ms_channel: SpikeTrain, ms_index: int):
         super().__init__(recording, ms_channel, ms_index)
@@ -81,6 +115,8 @@ class MechanicalStimulusWrapper(ChannelDataWrapper):
         self.duration: Quantity = len(self.raw_signal) * ms_channel.sampling_period
         self.amplitude: Quantity = ms_channel.array_annotations["amplitudes"][ms_index]
 
+## Iterator class allows iterating over a channel and creating the wrapper instances ad-hoc
+#  This class should not be used directly, only for iteration in for-in loops
 class DataWrapperIterator:
     def __init__(self, channel: "ChannelWrapper"):
         self.channel: ChannelWrapper = channel
@@ -103,6 +139,11 @@ class DataWrapperIterator:
 # so we can make use of type annotations, like for the iterator
 # Because currently it *hugs* pretty badly that vscode (and probably other editors/ides) 
 # does not recognize the type of the iterated object and can't give auto completions 
+
+## Wrapper class representing a channel in the recording
+#  Allows transparent access of the datapoints as wrapper classes
+#  Provides container functionality through len, accessing thorugh [index] or [start:stop(:step)] and iterating through for-in
+#  Wrapper class instances are only created ad-hoc and not stored in memory 
 class ChannelWrapper:
     def __init__(self, recording: "MNGRecording", channel: DataObject, wrapper_class: Type[ChannelDataWrapper]):
         self.recording: MNGRecording = recording
@@ -133,7 +174,22 @@ class ChannelWrapper:
     def __iter__(self):
         return DataWrapperIterator(self)
         
-
+## Wrapper class representing a recording session using a Neo segment as data storage
+#  Allows access through [channel_id] to the Neo datastructures.
+#  Contains the following members:
+#  * name: The name of the recording
+#  * file_name: the filename this recording was stored in
+#  * all_channels: a dictionary mapping channel ids to the Neo channel objects
+#  * raw_data_channels_raw: a dictionary mapping the raw data channel ids to the Neo channel objects
+#  * action_potential_channels_raw: a dictionary mapping the action potential channel ids to the Neo channel objects
+#  * electrical_stimulus_channels_raw: a dictionary mapping the electrical stimulus channel ids to the Neo channel objects
+#  * electrical_extra_stimulus_channels_raw: a dictionary mapping the electrical extra stimulus channel ids to the Neo channel objects
+#  * mechanical_stimulus_channels_raw: a dictionary mapping the mechanical extra stimulus channel ids to the Neo channel objects
+#  * raw_dat_channels: the same as raw_data_channels_raw
+#  * action_potential_channels: a dictionary mapping the action potential channel ids to the channel wrapper objects
+#  * electrical_stimulus_channels: a dictionary mapping the electrical stimulus channel ids to the channel wrapper objects
+#  * electrical_extra_stimulus_channels: a dictionary mapping the electrical extra stimulus channel ids to the channel wrapper objects
+#  * mechanical_stimulus_channels: a dictionary mapping the mechanical extra stimulus channel ids to the channel wrapper objects
 class MNGRecording:
     def __create_channel_wrappers(self, channels: Dict[str, DataObject], wrapper_class: Type[ChannelDataWrapper]) -> Dict[str, ChannelWrapper]:
         return {
@@ -169,7 +225,7 @@ class MNGRecording:
         self.mechanical_stimulus_channels: Dict[str, ChannelWrapper] = \
             self.__create_channel_wrappers(self.mechanical_stimulus_channels_raw, MechanicalStimulusWrapper)
     
-    def __getitem__(self, key: str) -> AnalogSignal:
+    def __getitem__(self, key: str) -> DataObject:
         return self.all_channels.get(key)
 
     def raw_data_channel_by_name(self, name: str) -> AnalogSignal:
