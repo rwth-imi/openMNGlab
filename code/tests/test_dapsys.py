@@ -63,7 +63,8 @@ class DapsysImporterTest(unittest.TestCase):
 
     # Check if the new dapsys neo importer can read files
     def test_loading(self):
-        block: Block = import_dapsys_csv_files(directory = FIXED_DIR_NAME)
+        block: Block
+        block, id_map, ap_tracks = import_dapsys_csv_files(directory = FIXED_DIR_NAME)
         self.assertEquals(len(block.segments), 1)
         seg: Segment = block.segments[0]
         self.assertGreater(len(seg.analogsignals), 0)

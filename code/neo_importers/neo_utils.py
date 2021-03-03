@@ -69,7 +69,9 @@ def convert_irregularly_sampled_signal_to_analog_signal(irregular_sig: Irregular
 
     # conversion step
     regular_sig[idcs] = irregular_sig[:].ravel()
-    result: AnalogSignal = AnalogSignal(regular_sig, t_start = irregular_sig.times[0], sampling_rate = sampling_rate, \
-        name = "Analog Signal", file_origin = irregular_sig.file_origin)
-        
+    result: AnalogSignal = AnalogSignal(regular_sig, 
+                                        t_start = irregular_sig.times[0], 
+                                        sampling_rate = sampling_rate,
+                                        name = "Analog Signal", 
+                                        file_origin = irregular_sig.file_origin)
     return result

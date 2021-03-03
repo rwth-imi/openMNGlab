@@ -5,15 +5,13 @@ import csv
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from math import ceil, floor
-from typing import List, Iterable
-from operator import itemgetter, truediv
-from scipy.signal import argrelextrema
+from math import floor
+from typing import List, Iterable, Tuple, Union, Dict
+
 from tqdm import tqdm
 from quantities import Quantity, second
-from neo.core.block import Block
-from neo.core import Event, IrregularlySampledSignal, AnalogSignal, SpikeTrain, Segment
-from typing import Union
+from neo.core import Block, Event, IrregularlySampledSignal, AnalogSignal, SpikeTrain, Segment
+
 import warnings
 import traceback
 import bisect
@@ -77,6 +75,13 @@ def _do_files_need_fixing(in_path: str) -> bool:
 
     return False
 
+## This function corrects dapsys files which suffer from the comma-separator
+# issue on german systems.
+def check_and_fix_dapsys_files(in_path: str, out_path: str):
+    if _do_files_need_fixing(in_path):
+        _fix_separator_decimal_matching(in_path, out_path)
+        assert _do_files_need_fixing(out_path) == False
+
 ## Read the main pulse file which has "pulses" in its name
 def _read_main_pulse_file(filepaths: List[str]) -> Event:
     try: 
@@ -86,7 +91,8 @@ def _read_main_pulse_file(filepaths: List[str]) -> Event:
         times = Quantity(pulses_df["timestamp"], "s")
 
         pulses = Event(times =  times, labels = pulses_df["comment"], name = "Dapsys Main Pulse", file_origin = pulse_file)
-        pulses.annotate(id = f"{TypeID.ELECTRICAL_STIMULUS.value}.0", type_id = TypeID.ELECTRICAL_STIMULUS.value)
+        channel_id = f"{TypeID.ELECTRICAL_STIMULUS.value}.0"
+        pulses.annotate(id = channel_id, type_id = TypeID.ELECTRICAL_STIMULUS.value)
 
         intervals: Quantity = np.diff(times)
         intervals = quantity_concat(intervals, np.array([float("inf")]) * second)
@@ -136,7 +142,8 @@ def _read_signal_file(filepaths: List[str], signal_unit: Quantity = None) -> Irr
             signal = Quantity(signal, "dimensionless")
 
         result = IrregularlySampledSignal(times = times, signal = signal, name = "Irregularly Sampled Signal", file_origin = signal_file)
-        result.annotate(id = f"{TypeID.RAW_DATA.value}.0", type_id = TypeID.RAW_DATA.value)
+        channel_id = f"{TypeID.RAW_DATA.value}.0"
+        result.annotate(id = channel_id, type_id = TypeID.RAW_DATA.value)
         return result
 
     # something might go wrong as we perform some IO operations here
@@ -221,8 +228,11 @@ def _imply_sampling_rate_from_irregular_signal(signal: IrregularlySampledSignal,
     return Quantity(1.0 / t_diff, "Hz")
 
 # TODO add doxygen comment
-def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: Event, signal: Union[IrregularlySampledSignal, AnalogSignal], \
-    window_size: Quantity = Quantity(0.003, "s"), sampling_rate = None) -> SpikeTrain:
+def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], 
+                                      el_stimuli: Event,
+                                      signal: Union[IrregularlySampledSignal, AnalogSignal],
+                                      window_size: Quantity = Quantity(0.003, "s"), 
+                                      sampling_rate = None) -> SpikeTrain:
     
     # TODO implement this function for analog signals and make it reusable
     if isinstance(signal, IrregularlySampledSignal) and sampling_rate is None:
@@ -282,12 +292,17 @@ def _find_action_potentials_on_tracks(ap_tracks: Iterable[APTrack], el_stimuli: 
     for ap_idx, ap_waveform in enumerate(ap_waveforms):
         waveforms[ap_idx, 0, 0 : len(ap_waveform)] = ap_waveform.ravel()
 
-    result = SpikeTrain(times = Quantity(ap_times, "s"), t_start = signal.t_start, t_stop = signal.t_stop, \
-        name = "APs from tracks", waveforms = waveforms, sampling_rate = sampling_rate)
+    result = SpikeTrain(times = Quantity(ap_times, "s"), 
+                        t_start = signal.t_start, t_stop = signal.t_stop,
+                        name = "APs from tracks", 
+                        waveforms = waveforms, 
+                        sampling_rate = sampling_rate)
+                        
     result.annotate(id = f"{TypeID.ACTION_POTENTIAL.value}.0", type_id = TypeID.ACTION_POTENTIAL.value)
     return result
 
-# TODO add comment
+# TODO this function should be re-implemented in some general way to detect APs from a raw signal
+'''
 def _find_action_potentials_per_threshold(raw_signal: IrregularlySampledSignal, ap_tracks: Iterable[APTrack], signal_threshold: Quantity, \
     correlation_threshold: float, window_size: Union[Quantity, int] = Quantity(0.003, "s")) -> SpikeTrain:
     
@@ -352,35 +367,54 @@ def _find_action_potentials_per_threshold(raw_signal: IrregularlySampledSignal, 
 
     # TODO make a SpikeTrain object from the action potentials
     return None
+'''
 
+## This function imports a dapsys recording from csv files
+# The files need to have a special naming. Take a look at the individual functions for getting the required keywords or look at the example in the tests directory.
+# @param directory Path where the csv files are located
+# @param sampling_rate Sampling rate can either be implied (pass "imply") or passed explicitly
+# @param ap_correlation_window_size Window size for the sliding window cross correlation which is used to detect APs around the AP tracks given in the dapsys files
+def import_dapsys_csv_files(directory: str,
+                            sampling_rate: Union[Quantity, str] = "imply",
+                            ap_correlation_window_size: Quantity = Quantity(0.003, "s")) \
+                            -> Tuple[Block, Dict[TypeID, Dict[str, str]], List[APTrack]]:
 
-""", ap_signal_threshold: Quantity, sampling_rate: Quantity"""
-def import_dapsys_csv_files(directory: str, sampling_rate: Union[Quantity, str] = "imply", ap_correlation_window_size: Quantity = Quantity(0.003, "s")):
+    csv_files = _get_files_with_extension(directory, ".csv")
 
+    main_pulses: Event = _read_main_pulse_file(filepaths = csv_files)
+    irregular_sig: IrregularlySampledSignal = _read_signal_file(filepaths = csv_files, signal_unit = "uV")
+    
+    if isinstance(sampling_rate, str) and sampling_rate == "imply":
+        sampling_rate = _imply_sampling_rate_from_irregular_signal(irregular_sig)
+
+    analog_sig: AnalogSignal = convert_irregularly_sampled_signal_to_analog_signal(irregular_sig, sampling_rate = sampling_rate)
+    analog_sig.annotate(id = f"{TypeID.RAW_DATA.value}.1", type_id = TypeID.RAW_DATA.value)
+    
+    ap_tracks: List[APTrack] = _read_track_files(filepaths = csv_files, el_stimuli = main_pulses, sampling_rate = sampling_rate)
+    track_aps: SpikeTrain = _find_action_potentials_on_tracks(ap_tracks = ap_tracks, 
+                                                              el_stimuli = main_pulses,
+                                                              signal = irregular_sig, 
+                                                              window_size = ap_correlation_window_size, 
+                                                              sampling_rate = sampling_rate)
+    
+    # create mapping from names to channel ids
+    channel_id_map = { type_id: {} for type_id in TypeID }
+    channel_id_map[TypeID.ELECTRICAL_STIMULUS].update({"Main Pulse": main_pulses.annotations["id"]})
+    channel_id_map[TypeID.RAW_DATA].update(
+        {"Analog Signal": analog_sig.annotations["id"],
+         "Irregular Signal": irregular_sig.annotations["id"]
+        })
+    channel_id_map[TypeID.ACTION_POTENTIAL].update({"Track APs": track_aps.annotations["id"]})
+
+    # produce the corresponding NEO objects
     block: Block = Block(name = "Base block of dapsys csv recording")
     segment: Segment = Segment(name = "This recording consists of one segment")
 
-    csv_files = _get_files_with_extension(directory, ".csv")
-    segment.events.append(_read_main_pulse_file(filepaths = csv_files))
-
-    # read the signal file and store this irregularly sampled signal for later computations
-    irregular_sig: IrregularlySampledSignal = _read_signal_file(filepaths = csv_files, signal_unit = "uV")
+    segment.events.append(main_pulses)
     segment.irregularlysampledsignals.append(irregular_sig)
-
-    # imply sampling rate if necessary
-    if isinstance(sampling_rate, str) and sampling_rate == "imply":
-        sampling_rate = _imply_sampling_rate_from_irregular_signal(irregular_sig)
-    # we need to convert the irregularly sampled signal to an analog signal
-    analog_sig: AnalogSignal = convert_irregularly_sampled_signal_to_analog_signal(irregular_sig, sampling_rate = sampling_rate)
-    analog_sig.annotate(id = f"{TypeID.RAW_DATA.value}.1", type_id = TypeID.RAW_DATA.value)
     segment.analogsignals.append(analog_sig)
-    
-    ap_tracks: List[APTrack] = _read_track_files(filepaths = csv_files, el_stimuli = segment.events[0], sampling_rate = sampling_rate)
-    segment.spiketrains.append(_find_action_potentials_on_tracks(ap_tracks = ap_tracks, el_stimuli = segment.events[0], \
-        signal = irregular_sig, window_size = ap_correlation_window_size, sampling_rate = sampling_rate))
+    segment.spiketrains.append(track_aps)
 
-    # other_aps: SpikeTrain = _find_action_potentials_per_threshold(raw_signal = signal, ap_tracks = ap_tracks, \
-    #     signal_threshold = Quantity(0.01, "dimensionless"), correlation_threshold = 0.5)
-    
     block.segments.append(segment)
-    return block
+
+    return block, channel_id_map, ap_tracks
