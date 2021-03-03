@@ -11,7 +11,7 @@ import re
 from neo_importers.neo_wrapper import TypeID
 from neo_importers.neo_utils import store_original_names, make_names_unique, quantity_concat, \
                                     remove_array_annotations, remove_empty_names, prune_segment, \
-                                    find_spikes
+                                    find_spikes, channel_index_to_time, spiketrain_from_raw, spike_amplitudes
 
 #################################################################################################
 ## General information:                                                                        ##
@@ -56,6 +56,11 @@ MechanicalStimulusReferences = Set[MechanicalStimulusReference]
 
 ############################# General helpers #############################
 
+## Normalizes channel references for event channels
+#  Event channels are referenced by channelreference - marker tuples, which, for the ease of writing can
+#  be written as a dict { ref: marker }, or as a set of tuples. This function converts the dict to the set variant
+# @param references either set of tuples, or a dict of the form {ref: marker}
+# @returns A set of tuples for channel references
 def _normalize_channel_refs(references: EventChannelReferences) -> Set[EventChannelReference]:
     if isinstance(references, set):
         return references
@@ -64,6 +69,10 @@ def _normalize_channel_refs(references: EventChannelReferences) -> Set[EventChan
         result.update([(ch_ref, item) for item in items])
     return result
 
+## Returns the channel that is referenced by either the spike2 channel ID or by the channel name
+#  @param channels Iterable container containing all channels
+#  @param ref channel reference, either the channel name (str) or the spike2 channel ID (int)
+#  @returns The first channel in the container matching the reference
 def _channel_by_reference(channels: Iterable[DataObject], ref: ChannelReference) -> DataObject:
     for channel in channels:
         if (isinstance(ref, str) and channel.name == ref) \
@@ -71,6 +80,10 @@ def _channel_by_reference(channels: Iterable[DataObject], ref: ChannelReference)
             return channel
     return None
 
+## Returns a spike train channel referenced by the channel name or spike2 channel ID, as well as the filter
+#  @param channels Iterable container containing all channels
+#  @param tuple of a channel reference, either the channel name (str) or the spike2 channel ID (int), and the filter index
+#  @returns The first channel in the container matching the reference
 def _spiketrain_by_reference(channels: Iterable[SpikeTrain], ref: SpikeChannelReference) -> SpikeTrain:
     if isinstance(ref, str) or isinstance(ref, int):
         return _channel_by_reference(channels, ref)
@@ -81,6 +94,10 @@ def _spiketrain_by_reference(channels: Iterable[SpikeTrain], ref: SpikeChannelRe
                 and channel.annotations.get("spike_filter", None) == spike_filter):
             return channel
 
+## Returns a event channel referenced by the channel name or spike2 channel ID, and optionally also the marker
+#  @param channels Iterable container containing all channels
+#  @param channel reference, either the channel name (str) or the spike2 channel ID (int), or a tuple of the channel reference and the marker (str)
+#  @returns The first channel in the container matching the reference
 def _event_channel_by_reference(channels: Iterable[Event], ref: EventChannelReference) -> Event:
     if isinstance(ref, str) or isinstance(ref, int):
         return _channel_by_reference(channels, ref)
@@ -93,8 +110,10 @@ def _event_channel_by_reference(channels: Iterable[Event], ref: EventChannelRefe
 
 ############################# Spiketrains #############################
 
-# Takes a list of spiketrains and groups them by the channel they reference
-# This way we can distinguish channels with the same name
+## Takes a list of spiketrains and groups them by the channel they reference
+#  Used to distinguish channels with the same name
+#  @param spiketrains list of all all spiketrains
+#  @returns a Dict mapping all spiketrains belonging to the same channel to that channel id
 def _group_spiketrains_by_channel_ref(spiketrains: List[SpikeTrain]) -> Dict[int, List[SpikeTrain]]:
     result: Dict[int, List[SpikeTrain]] = {}
     # The Spike2IO reader adds a unique ID to each spiketrain of the form chID#Filter
@@ -114,7 +133,8 @@ def _group_spiketrains_by_channel_ref(spiketrains: List[SpikeTrain]) -> Dict[int
         result[ch_id] = channel_spiketrains
     return result
 
-# If two or more channels have the same name, make the name unique by adding an index to the name
+## Make channel names unique for channels with the same name, by adding an index to the name
+#  @param spiketrain_channels List of a List of all spiketrains per channel with the same name
 def _make_spiketrain_names_unique_per_channel(spiketrain_channels: List[List[SpikeTrain]]) -> None:
     if len(spiketrain_channels) == 1:
         return
@@ -122,11 +142,14 @@ def _make_spiketrain_names_unique_per_channel(spiketrain_channels: List[List[Spi
         for spiketrain in spiketrains:
             spiketrain.name = f"{spiketrain.name}_{i}"
 
-# Make different marker filter spiketrain names unique by appending their marker ID to the name
+## Make names of spiketrains of the same channel with different filters unique by adding the filter index to the name
+#  @param spiketrains the list of spiketrains
 def _make_spiketrain_names_unique_per_marker(spiketrains: List[SpikeTrain]) -> None:
     for spiketrain in spiketrains:
         spiketrain.name = f"{spiketrain.name}#{spiketrain.annotations['spike_filter']}"
 
+## Prepares spiketrain channels for later use. This includes unifying the reference format (ids, channel names)
+# @param segment the Neo segment of which the spiketrains shall be prepared
 def _prepare_spiketrains(segment: Segment) -> None:
     # lists of all spiketrains with the same name
     channels: Dict[str, List[SpikeTrain]] = {st.name: [s for s in segment.spiketrains if s.name == st.name] for st in segment.spiketrains}
@@ -137,10 +160,15 @@ def _prepare_spiketrains(segment: Segment) -> None:
 
 ############################# Events #############################
 
+## Store the spike2 channel id in the annotations as channel_id
+#  this ensures a unified referencing scheme over all channel types
+#  @param events List containing all event channels
 def _assign_event_channel_ids(events: List[Event]) -> None:
     for event in events:
         event.annotate(channel_id=event.annotations["id"])
 
+## Prepares event channels for later use. This includes unifying the reference format (ids, channel names)
+# @param segment the Neo segment of which the spiketrains shall be prepared
 def _prepare_events(segment: Segment) -> None:
     events: List[Event] = segment.events
     make_names_unique(events)
@@ -150,6 +178,10 @@ def _prepare_events(segment: Segment) -> None:
 
 ############################# Electrical stimuli #############################
 
+## Creates a new event channel from an existing one, containing only labels that satisfy a condition
+#  @param event_channel Event channel to be forked from
+#  @param label_filter function that evaluates if a datapoint should be included in the result
+#  @result Event channel without a name, that only contains datapoints for which label_filter evaluated to true
 def _filter_event_channel(event_channel: Event, label_filter: Callable[[str], bool]) -> Event:
     # list or ndarray
     labels = event_channel.labels
@@ -163,6 +195,11 @@ def _filter_event_channel(event_channel: Event, label_filter: Callable[[str], bo
         else [l for l in labels if label_filter(l)]
     return Event(times=new_times, labels=new_labels, units=event_channel.units)
 
+## Creates a new event channel from another channel only containing datapoints where the marker matches a predefined value
+#  @param segment the segment to add the channel to
+#  @param channel_ref the reference to the channel that should be forked
+#  @param marker the marker for which to filter the channel
+#  @returns a newly created event channel with a unique name that contains all datapoints from the referenced channel that have the given marker label 
 def _create_filter_channel(segment: Segment, channel_ref: ChannelReference, marker: EventMarker) -> Event:
     channel = _channel_by_reference(segment.events, channel_ref)
     assert channel is not None
@@ -178,8 +215,16 @@ def _create_filter_channel(segment: Segment, channel_ref: ChannelReference, mark
     segment.events.append(new_channel)
     return new_channel
 
-# First, detect stimuli event channels, if necessary split them up by their marker
-# Second, create stimuli interval channels for each stimuli channel
+## Converts stimuli event channels into the unified format for later use.
+#  This includes splitting event channels containing multiple different markers into separate channels
+#  and also adding required meta information to the annotations. 
+#  These annotations are:
+#  * id: the unified channel id of our format
+#  * type_id: the id of the type of channel (ELECTRICAL_STIMULUS)
+#  * intervals: array of intervals from each event to the next, last one is infinite (as there is no next event)
+#  @param segment the Neo segment containing the event channels
+#  @param stimuli_channels references (either channel name or name - marker pairs) of the event channels of interest
+#  @returns a dict mapping channel names to our unified id format
 def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences) -> Dict[str, str]:
     if stimuli_channels is None:
         return {}
@@ -215,6 +260,13 @@ def _prepare_stimuli(segment: Segment, stimuli_channels: EventChannelReferences)
 
 ############################# Raw data #############################
 
+## Converts raw data channels to our unified format for later use
+#  This means adding the required meta information:
+#  * id: the unified channel id of our format
+#  * type_id: the id of the type of channel (RAW_DATA)
+#  @param segment the Neo segment containing the signal channels
+#  @param raw_channels references (name or id) of the signal channels of interest
+#  @returns a dict mapping channel names to our unified id format
 def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> Dict[str, str]:
     if raw_channels is None:
         raw_channels = {a.name for a in segment.analogsignals}
@@ -231,7 +283,10 @@ def _prepare_raw_data(segment: Segment, raw_channels: Set[ChannelReference]) -> 
 
 ############################# Extra Stimuli #############################
 
-# gets the start:stop indices for each extra stimulus group
+## Groups stimuli that are at most a certain interval apart together
+#  @param channel event channel containing the stimuli
+#  @param time_threshold maximum time between stimuli (as quantity convertable to time)
+#  @returns a List [start:stop] of the stimuli indices per group
 def _group_stimuli(channel: Event, time_threshold: Quantity) -> List[Tuple[int, int]]:
     result: List[Tuple(int, int)] = []
     last_ev: Quantity = None
@@ -246,6 +301,10 @@ def _group_stimuli(channel: Event, time_threshold: Quantity) -> List[Tuple[int, 
         result.append((start_index, len(channel.times)))
     return result
 
+## Creates new extra stimuli channel from event channelm where each extra stimuli is the time interval of stimuli groups
+#  @param from_channel the event channel containing the extra stimuli groups
+#  @param time_threshold maximum time between stimuli (as quantity convertable to time) so they are part of the same interval
+#  @returns an epoch channel containing the intervals of each extra stimulus
 def _create_extra_stimuli_channel(from_channel: Event, time_threshold: Quantity) -> Epoch:
     stimuli: List[Tuple[int, int]] = _group_stimuli(from_channel, time_threshold)
     #data_points: List[Quantity] = [from_channel.times[start:stop] for start, stop in stimuli]
@@ -268,6 +327,15 @@ def _create_extra_stimuli_channel(from_channel: Event, time_threshold: Quantity)
     return epoch
     
 
+## Creates extra stimulus epoch channels in the unified format for later use.
+#  This creates new epoch channels from event channels in a given time threshold and annotates them with meta information
+#  These annotations are:
+#  * id: the unified channel id of our format
+#  * type_id: the id of the type of channel (ELECTRICAL_EXTRA_STIMULUS)
+#  * frequencies: array of the extra stimulus frequency for each of the stimulus intervals
+#  @param segment the Neo segment containing the event channels
+#  @param stimuli_channels references (either channel name or name - marker pairs) of the event channels of interest
+#  @returns a dict mapping channel names to our unified id format
 def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelReferences, time_threshold: Quantity = 1*s) -> Dict[str, str]:
     # basically the same as _prepare_stimuli
     if stimuli_channels is None:
@@ -302,28 +370,16 @@ def _prepare_extra_stimuli(segment: Segment, stimuli_channels: EventChannelRefer
 
 ############################# Mechanical Stimuli #############################
 
-def _channel_index_to_time(channel: AnalogSignal, index: int) -> Quantity:
-    result = channel.t_start + index * channel.sampling_period
-    # ensure unit compatibility
-    result.units = channel.sampling_period.units
-    return result
-
-def _spiketrain_from_raw(channel: AnalogSignal, threshold: Quantity) -> SpikeTrain:
-    assert channel.signal.shape[1] == 1
-    spikes = find_spikes(channel, threshold)
-    signal = channel.signal.squeeze()
-    times = np.array([_channel_index_to_time(channel, start) for start, _ in spikes]) * channel.sampling_period.units
-    waveforms = np.array([[signal[start:stop]] for start, stop in spikes]) * channel.units
-    name = f"{channel.name}#{threshold}"
-    result = SpikeTrain(name=name, times=times, units=channel.units, t_start=channel.t_start, t_stop=channel.t_stop,
-                        waveforms=waveforms, sampling_rate=channel.sampling_rate, sort=True)
-    result.annotate(from_channel=channel.name, threshold=threshold)
-    return result
-
-def _get_amplitudes(channel: SpikeTrain) -> Quantity:
-    # there is probably a numpy version of this
-    return np.array([max(wave[0]) for wave in channel.waveforms]) * channel.units
-
+## Creates mechanical stimulus epoch channels in the unified format for later use.
+#  This prepares existing channels or creates new ones from raw signals exceeding a certain threshold.
+#  The channels are annotated with meta information:
+#  * id: the unified channel id of our format
+#  * type_id: the id of the type of channel (ELECTRICAL_EXTRA_STIMULUS)
+#  * amplitudes: array of the maximum amplitude of each of the stimuli
+#  @param segment the Neo segment containing the spiketrain and signal channels
+#  @param from_raw Set of tuples of raw channel references with thresholds to extract spikes from
+#  @param spike_channels references (channel reference - filter id) to spiketrains that should be prepared as mechanical stimuli
+#  @returns a dict mapping channel names to our unified id format
 def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusReferences, spike_channels: SpikeChannelReferences) -> Dict[str, str]:
     type_id = TypeID.MECHANICAL_STIMULUS.value
     result = {}
@@ -332,12 +388,12 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
         for channel_ref, threshold in from_raw:
             # create a new spiketrain from the raw signal
             raw_channel = _channel_by_reference(segment.analogsignals, channel_ref)
-            new_channel = _spiketrain_from_raw(raw_channel, threshold)
+            new_channel = spiketrain_from_raw(raw_channel, threshold)
             # set id
             channel_id = f"{type_id}.{stimulus_index}"
             stimulus_index += 1
             new_channel.annotate(id=channel_id, type_id=type_id)
-            new_channel.array_annotate(amplitudes=_get_amplitudes(new_channel))
+            new_channel.array_annotate(amplitudes=spike_amplitudes(new_channel))
             # add channel to segment
             segment.spiketrains.append(new_channel)
             result[new_channel.name] = channel_id
@@ -355,6 +411,13 @@ def _prepare_mechanical_stimuli(segment: Segment, from_raw: MechanicalStimulusRe
             
 ############################# Action potentials #############################
 
+## Converts spiketrain channels to our unified format for later use
+#  This means adding the required meta information:
+#  * id: the unified channel id of our format
+#  * type_id: the id of the type of channel (RAW_DATA)
+#  @param segment the Neo segment containing the signal channels
+#  @param channel_refs spiketrain channel references tuple of channel refrence (name or id) and filter id of the spiketrains of interest
+#  @returns a dict mapping channel names to our unified id format
 def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelReferences) -> Dict[str, str]:
     if channel_refs is None:
         return
@@ -379,6 +442,8 @@ def _prepare_action_potentials(segment: Segment, channel_refs: SpikeChannelRefer
 
 ############################# Loading #############################
 
+## Prepare the segment for data extraction. Mainly unify name format and make them unique
+#  @param segment the semgent to prepare
 def _prepare_segment(segment: Segment) -> None:
     # the neo spike importer creates some faulty array annotations
     # we need to remove them because they cause errors with the NIX exporter
@@ -388,6 +453,28 @@ def _prepare_segment(segment: Segment) -> None:
     _prepare_spiketrains(segment)
     _prepare_events(segment)
 
+## Import a spike2 binary file into our unified format
+#  @param stimuli_event_channels references to stimuli channels.
+#         A reference is either a channel reference or a tuple of channel reference and marker if the channel contains multiple markers.
+#         For ease of writing, also a dict { channel reference: marker } can be used
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @param extra_stimuli_event_channels references to extra stimuli channels.
+#         A reference is either a channel reference or a tuple of channel reference and marker if the channel contains multiple markers.
+#         For ease of writing, also a dict { channel reference: marker } can be used
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @param mechanical_stimuli_from_raw references the raw channels and the threshold to extract mechanical stimuli from. 
+#         The format is a set/list of tuples of the raw channel reference and the threshold as quantity convertable to the unit of the channel
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @param mechanical_stimuli_channels references to already extracted spiketrain channels that represent mechanical stimuli.
+#         The format is a set/list of tuples of channel references and the filter index
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @param action_potential_channels references the spiketrains containing the action potentials
+#         The format is a set/list of tuples of channel references and the filter index
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @param raw_channels references to the raw signal channels as set/list
+#         A channel reference is either the channel name (after being made unique) or the spike channel ID (channel number - 1)
+#  @returns the Neo Block imported from spike together with a dict mapping type ids to a dict mapping channel names to the unified id format
+#           The type id is the string value of the TypeID enum and the unified id format is type_id.id where id is an incrementing number unique per type_id
 def import_spike_file(file_name: Path,
                       stimuli_event_channels: EventChannelReferences = None,
                       extra_stimuli_event_channels: EventChannelReferences = None,
