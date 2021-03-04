@@ -1,7 +1,7 @@
 from typing import Iterable, List, Tuple, Dict
 
 from quantities import Quantity
-from neo.core import Segment, AnalogSignal, IrregularlySampledSignal
+from neo.core import Segment, AnalogSignal, IrregularlySampledSignal, SpikeTrain
 from neo.core.dataobject import DataObject
 import numpy as np
 from neo_importers.neo_wrapper import TypeID
