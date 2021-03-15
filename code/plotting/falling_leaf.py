@@ -50,7 +50,12 @@ class FallingLeafPlot:
             "width": self.width, 
             "height": self.height, 
             "yaxis": {"autorange": "reversed", "title": "Time (s)"},
-            "xaxis": {"title": "Latency (" + str(post_stimulus_timeframe.dimensionality) + ")"}
+            "xaxis": {"title": "Latency (" + str(post_stimulus_timeframe.dimensionality) + ")"},
+            "yaxis2": {
+                "title": "Amplitude (" + str(self.recording.raw_data_channels[analog_signal_channel].dimensionality) + ")", 
+                "side": "right",
+                "overlaying": "y1"
+                }
         })
         
         with fig.batch_update():
@@ -64,7 +69,8 @@ class FallingLeafPlot:
                     marker_symbol = "star",
                     hovertemplate = "%{text}",
                     text = ["time = " + "{:1.4f}".format(stim.time) + "<br>Index = " + str(stim.index) for stim in disp_el_stimuli],
-                    name = "Electrical Stimuli"
+                    name = "Electrical Stimuli",
+                    yaxis = "y1"
                 )
             )
 
@@ -120,7 +126,8 @@ class FallingLeafPlot:
                             text = ["time = " + "{:1.4f}".format(t) + "<br>amp = " + "{:1.2f}".format(s) for t, s in zip(time_space + stim.time, sweep_raw_signal)],
                             legendgroup = "rawsignal",
                             name = "Raw Signal",
-                            showlegend = True if index == 0 else False
+                            showlegend = True if index == 0 else False,
+                            yaxis = "y2"
                         )
                     )
             else:
@@ -181,7 +188,8 @@ class FallingLeafPlot:
                         hovertemplate = "%{text}",
                         text = ["Latency: " + "{:1.4f}".format(latency) for latency in aps_x],
                         name = channel_name,
-                        showlegend = True
+                        showlegend = True,
+                        yaxis = "y1",
                     )
                 )
         
@@ -215,10 +223,21 @@ class FallingLeafPlot:
                                 "color": ap_track.color,
                                 "width": .75
                             },
-                            name = ap_track.name
+                            name = ap_track.name,
+                            yaxis = "y1"
                         )
                     )
         
+
+        fig.update_layout(legend = dict(
+            yanchor = "top",
+            y = 0.95,
+            xanchor = "left",
+            x = 1.2,
+            bordercolor = "Black",
+            borderwidth = 1
+        ))
+
         fig.show()
         
         self.fig = fig
