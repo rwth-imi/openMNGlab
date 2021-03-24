@@ -41,7 +41,7 @@ def _fix_separator_decimal_matching(in_path: str, out_path: str, new_separator =
 
         # open the input and output csv files
         with open(in_filepath, 'r', newline = '\n') as in_csv_file, \
-             open(out_filepath, 'a', newline = '\n') as out_csv_file:
+             open(out_filepath, 'w', newline = '\n') as out_csv_file:
             csv_reader = csv.reader(in_csv_file, delimiter = ',')
             csv_writer = csv.writer(out_csv_file, delimiter = new_separator, \
                 quoting = csv.QUOTE_NONNUMERIC, escapechar = "\\")
