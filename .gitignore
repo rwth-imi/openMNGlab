@@ -2,6 +2,7 @@
 /code/__pycache__/
 /code/.vscode/
 /docs/
+/resources/
 code/**/__pycache__/
 start_notebook.*
 data/*.csv

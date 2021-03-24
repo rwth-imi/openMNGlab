@@ -2,24 +2,43 @@ import unittest
 import os
 import csv
 from pathlib import Path
+from tests.helpers import download_files
 
 from neo.core.block import Block
 from neo.core.segment import Segment
 
-from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files, _do_files_need_fixing
+from neo_importers.neo_dapsys_importer import _fix_separator_decimal_matching, import_dapsys_csv_files, _do_files_need_fixing, check_and_fix_dapsys_files
 from neo_importers.neo_wrapper import MNGRecording
 
-ORIG_DIR_NAME = Path(".")/"tests"/"resources"/"dapsys"/"dapsys_crossing_tracks_0_1400"
-FIXED_DIR_NAME = Path(".")/"tests"/"resources"/"dapsys"/"dapsys_crossing_tracks_0_1400_fixed"
-CONTINOUS_FILE = "06_11_19_F3B_AF_Continuous Recording.csv"
-PULSE_FILE = "06_11_19_F3B_AF_Pulses.csv"
-TRACK_FILES = ["06_11_19_F3B_AF_Track2.CSV", "06_11_19_F3B_AF_Track5.CSV"]
+ORIG_DIR_NAME = Path("..")/"resources"/"test"/"dapsys"/"dapsys_crossing_tracks_0_1400"
+FIXED_DIR_NAME = Path("..")/"resources"/"test"/"dapsys"/"dapsys_crossing_tracks_0_1400_fixed"
+
+FILENAMES = ["06_11_19_F3B_AF_Continuous Recording.csv", 
+             "06_11_19_F3B_AF_All Responses.csv", 
+             "06_11_19_F3B_AF_Pulses.csv", 
+             "06_11_19_F3B_AF_Track2.CSV", 
+             "06_11_19_F3B_AF_Track5.CSV",
+             "template_Track2.csv",
+             "template_Track5.csv"]
+FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Continuous%20Recording.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_All%20Responses.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Pulses.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Track2.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Track5.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/template_Track2.csv",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/template_Track5.csv"]
+
 SAMPLING_RATE = 10000
 T_MIN = 11.679126 
 T_MAX = 1399.99994
 NUM_STIMULI = 310
 
 class DapsysImporterTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        download_files(FILE_URLS, FILENAMES, ORIG_DIR_NAME)
+        check_and_fix_dapsys_files(ORIG_DIR_NAME, FIXED_DIR_NAME)
+        return super().setUp()
 
     # checks whether dapsys importer can detect that files need to be fixed due to comma separator issues
     def test_files_need_fix(self):

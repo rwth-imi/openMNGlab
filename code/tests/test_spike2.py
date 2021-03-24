@@ -1,3 +1,4 @@
+from tests.helpers import download_files
 import unittest
 import os
 from pathlib import Path
@@ -8,14 +9,23 @@ import neo_importers.neo_spike_importer as spike_importer
 from neo_importers.neo_wrapper import MNGRecording
 
 # PARAMETERS FOR THIS TEST
-SPIKE2_FILE_NAME = Path(".")/"tests"/"resources"/"spike2"/"20_05_13_U1a_pulse_Latenz.smr"
+TEST_DIR_NAME = Path("..")/"resources"/"test"/"spike2"
+FILENAMES = ["20_05_13_U1a_pulse_Latenz.smr"]
+FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/spike2/20_05_13_U1a_pulse_Latenz.smr"]
 
 class Spike2ImporterTest(unittest.TestCase):
 
-    def test_spike2_import(self):
-        self.assertTrue(os.path.exists(SPIKE2_FILE_NAME))
+    def setUp(self) -> None:
+        
+        download_files(FILE_URLS, FILENAMES, TEST_DIR_NAME)
 
-        bl, id_map = spike_importer.import_spike_file(SPIKE2_FILE_NAME, 
+        return super().setUp()
+
+    def test_spike2_import(self):
+        fname = Path(os.path.join(TEST_DIR_NAME, FILENAMES[0]))
+
+        self.assertTrue(os.path.exists(fname))
+        bl, id_map = spike_importer.import_spike_file(fname, 
                                               stimuli_event_channels={"DigMark"},
                                               action_potential_channels={"nw-1#2"}
                                              )

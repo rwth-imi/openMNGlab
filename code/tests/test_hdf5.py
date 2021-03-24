@@ -1,4 +1,5 @@
 from datetime import datetime
+from tests.helpers import download_files
 import unittest
 import os
 from pathlib import Path
@@ -10,7 +11,9 @@ from neo_importers.recording_io import load_block, store_block, load_recordings,
 from neo_importers.neo_wrapper import MNGRecording
 
 # PARAMETERS FOR THIS TEST
-SPIKE2_FILE_NAME = Path(".")/"tests"/"resources"/"spike2"/"20_05_13_U1a_pulse_Latenz.smr"
+TEST_DIR_NAME = Path("..")/"resources"/"test"/"hdf5"
+FILENAMES = ["20_05_13_U1a_pulse_Latenz.smr"]
+FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/spike2/20_05_13_U1a_pulse_Latenz.smr"]
 
 class HDF5IOTest(unittest.TestCase):
 
@@ -24,12 +27,14 @@ class HDF5IOTest(unittest.TestCase):
             name = "Test Recording", file_name = filename)
 
     def setUp(self) -> None:
-        self._load_recording(filename = SPIKE2_FILE_NAME)
+        download_files(FILE_URLS, FILENAMES, TEST_DIR_NAME)
+        fname = Path(os.path.join(TEST_DIR_NAME, FILENAMES[0]))
+        self._load_recording(filename = fname)
         return super().setUp()
 
     def test_block_save_and_load(self):
         # save, load and cleanup
-        fname = Path(".")/"tests"/"resources"/("tmp_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".h5")
+        fname = Path(os.path.join(TEST_DIR_NAME, "tmp_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".h5"))
         store_block(fname, self.block)
         block2, id_map2 = load_block(fname)
         if os.path.exists(fname):
@@ -46,7 +51,7 @@ class HDF5IOTest(unittest.TestCase):
 
     def test_recordings_save_and_load(self):
         # save, load and cleanup
-        fname = Path(".")/"tests"/"resources"/("tmp_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".h5")
+        fname = Path(os.path.join(TEST_DIR_NAME, "tmp_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".h5"))
         store_recordings(fname, self.recording)
         (recording2,), id_map2 = load_recordings(fname)
         if os.path.exists(fname):
