@@ -13,18 +13,18 @@ from neo_importers.neo_wrapper import MNGRecording
 ORIG_DIR_NAME = Path("..")/"resources"/"test"/"dapsys"/"dapsys_crossing_tracks_0_1400"
 FIXED_DIR_NAME = Path("..")/"resources"/"test"/"dapsys"/"dapsys_crossing_tracks_0_1400_fixed"
 
-FILENAMES = ["06_11_19_F3B_AF_Continuous Recording.csv", 
-             "06_11_19_F3B_AF_All Responses.csv", 
-             "06_11_19_F3B_AF_Pulses.csv", 
-             "06_11_19_F3B_AF_Track2.CSV", 
-             "06_11_19_F3B_AF_Track5.CSV",
+FILENAMES = ["F3B_AF_Continuous Recording.csv", 
+             "F3B_AF_All Responses.csv", 
+             "F3B_AF_Pulses.csv", 
+             "F3B_AF_Track2.CSV", 
+             "F3B_AF_Track5.CSV",
              "template_Track2.csv",
              "template_Track5.csv"]
-FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Continuous%20Recording.CSV",
-             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_All%20Responses.CSV",
-             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Pulses.CSV",
-             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Track2.CSV",
-             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/06_11_19_F3B_AF_Track5.CSV",
+FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/F3B_AF_Continuous%20Recording.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/F3B_AF_All%20Responses.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/F3B_AF_Pulses.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/F3B_AF_Track2.CSV",
+             "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/F3B_AF_Track5.CSV",
              "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/template_Track2.csv",
              "https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/dapsys/template_Track5.csv"]
 

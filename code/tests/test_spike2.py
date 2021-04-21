@@ -10,8 +10,8 @@ from neo_importers.neo_wrapper import MNGRecording
 
 # PARAMETERS FOR THIS TEST
 TEST_DIR_NAME = Path("..")/"resources"/"test"/"spike2"
-FILENAMES = ["20_05_13_U1a_pulse_Latenz.smr"]
-FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/383db037d8e21ee9b3bdb1ebb8048f1f035eaa75/spike2/20_05_13_U1a_pulse_Latenz.smr"]
+FILENAMES = ["U1a_pulse_Latenz.smr"]
+FILE_URLS = ["https://gin.g-node.org/fschlebusch/openMNGlab-testdata/raw/688671ee935ed2deeb73abe746228e36ec4ac240/spike2/U1a_pulse_Latenz.smr"]
 
 class Spike2ImporterTest(unittest.TestCase):
 
