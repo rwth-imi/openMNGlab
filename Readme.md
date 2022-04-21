@@ -1,5 +1,10 @@
 # openMNGlab
 
+!IMPORTANT UPDATE 21.04.2022!
+We are currently working on the new version of the software, with substantial restructuring of the code. If you are interested in analysing your microneurography data, please contact Ekaterina Kutafina (ekutafina * at * ukaachen.de) for the details.
+
+
+
 This project aims at providing a software framework for data analysis on microneurography (MNG) recordings.
 It currently supports import of data from the Spike2 and Dapsys data acquisition softwares.
 However, due to its modular structure, new methods for data import can be added at any time.
