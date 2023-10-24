@@ -1,7 +1,11 @@
 # openMNGlab
+!IMPORTANT UPDATE 24.10.2023!
+The current version can be find  
+https://github.com/Digital-C-Fiber/openMNGlab
+
 
 !IMPORTANT UPDATE 21.04.2022!
-We are currently working on the new version of the software, with substantial restructuring of the code. If you are interested in analysing your microneurography data, please contact Ekaterina Kutafina (ekutafina * at * ukaachen.de) for the details.
+We are currently working on the new version of the software, with substantial restructuring of the code. If you are interested in analysing your microneurography data, please contact Ekaterina Kutafina (ekaterina.kutafina * at * rwth-aachen.de) for the details.
 
 
 
