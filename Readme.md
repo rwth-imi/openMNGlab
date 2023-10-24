@@ -1,6 +1,6 @@
 # openMNGlab
 !IMPORTANT UPDATE 24.10.2023!
-The current version can be find  
+The current version can be found at  
 https://github.com/Digital-C-Fiber/openMNGlab
 
 
